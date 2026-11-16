@@ -28,6 +28,8 @@ const userSchema = new mongoose.Schema(
     // farmer's message channels (WhatsApp / SMS / voice notes). In-app notifications are always on.
     notify: { whatsapp: { type: Boolean, default: true }, sms: { type: Boolean, default: true }, voice: { type: Boolean, default: false } },
     waLastInboundAt: Date, // farmer's last WhatsApp message to us (opens WhatsApp's 24-hour window for free-form voice notes)
+    telegramChatId: { type: String, unique: true, sparse: true },
+    telegramEnabled: { type: Boolean, default: true },
     costs: [{ _id: false, year: Number, components: mongoose.Schema.Types.Mixed }], // farmer's actual spend per season (Rs per component)
   },
   { timestamps: true }

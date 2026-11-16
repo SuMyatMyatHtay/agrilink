@@ -1,5 +1,102 @@
 [
   {
+    "collection": "telegramlinks",
+    "model": "TelegramLink",
+    "fields": {
+      "_id": {
+        "type": "String",
+        "required": false
+      },
+      "user": {
+        "type": "ObjectId",
+        "required": true,
+        "ref": "User"
+      },
+      "expiresAt": {
+        "type": "Date",
+        "required": true
+      },
+      "__v": {
+        "type": "Number",
+        "required": false
+      }
+    },
+    "indexes": [
+      [
+        {
+          "user": 1
+        },
+        {
+          "background": true
+        }
+      ],
+      [
+        {
+          "expiresAt": 1
+        },
+        {
+          "expireAfterSeconds": 0,
+          "background": true
+        }
+      ]
+    ]
+  },
+  {
+    "collection": "telegramupdates",
+    "model": "TelegramUpdate",
+    "fields": {
+      "_id": {
+        "type": "Number",
+        "required": false
+      },
+      "chatId": {
+        "type": "String",
+        "required": false
+      },
+      "status": {
+        "type": "String",
+        "required": false,
+        "enum": [
+          "processing",
+          "done",
+          "failed"
+        ]
+      },
+      "leaseUntil": {
+        "type": "Date",
+        "required": false
+      },
+      "reply": {
+        "type": "String",
+        "required": false
+      },
+      "replyUser": {
+        "type": "ObjectId",
+        "required": false,
+        "ref": "User"
+      },
+      "expiresAt": {
+        "type": "Date",
+        "required": false
+      },
+      "__v": {
+        "type": "Number",
+        "required": false
+      }
+    },
+    "indexes": [
+      [
+        {
+          "expiresAt": 1
+        },
+        {
+          "expireAfterSeconds": 0,
+          "background": true
+        }
+      ]
+    ]
+  },
+  {
     "collection": "users",
     "model": "User",
     "fields": {
@@ -74,6 +171,14 @@
         "type": "Date",
         "required": false
       },
+      "telegramChatId": {
+        "type": "String",
+        "required": false
+      },
+      "telegramEnabled": {
+        "type": "Boolean",
+        "required": false
+      },
       "costs": {
         "type": "Array",
         "required": false
@@ -102,6 +207,16 @@
         },
         {
           "unique": true,
+          "background": true
+        }
+      ],
+      [
+        {
+          "telegramChatId": 1
+        },
+        {
+          "unique": true,
+          "sparse": true,
           "background": true
         }
       ]
@@ -1072,6 +1187,7 @@
         "type": "String",
         "required": false,
         "enum": [
+          "telegram",
           "whatsapp",
           "sms",
           "voice"
@@ -1221,6 +1337,24 @@
           "dedupeKey": 1
         },
         {
+          "background": true
+        }
+      ],
+      [
+        {
+          "user": 1,
+          "channel": 1,
+          "template": 1,
+          "dedupeKey": 1
+        },
+        {
+          "unique": true,
+          "partialFilterExpression": {
+            "channel": "telegram",
+            "dedupeKey": {
+              "$type": "string"
+            }
+          },
           "background": true
         }
       ]

@@ -13,6 +13,8 @@
     "db:init": "node --env-file-if-exists=.env scripts/database.mjs init",
     "db:check": "node --env-file-if-exists=.env scripts/database.mjs check",
     "db:schema": "node scripts/database.mjs schema",
+    "telegram:setup": "node --env-file-if-exists=.env scripts/telegram.mjs setup",
+    "telegram:status": "node --env-file-if-exists=.env scripts/telegram.mjs status",
     "test:database": "node --test test/database.test.js",
     "test:isolated": "node scripts/test-isolated.mjs",
     "test": "node --test \"test/**/*.test.js\""

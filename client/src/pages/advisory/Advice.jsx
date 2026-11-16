@@ -321,7 +321,7 @@ export function FarmerMessages() {
       {data && !data.length && <div className="card adv-empty"><Icon name="bell" size={26} /><p>—</p></div>}
       <div className="adv-list">{(data || []).map((m) => (
         <div key={m._id} className="card adv-msg">
-          <div className="adv-line"><span className="pill adv-neutral">{m.channel === "whatsapp" ? "WhatsApp" : m.channel === "sms" ? "SMS" : t("adv_voice")}</span>
+          <div className="adv-line"><span className="pill adv-neutral">{m.channel === "telegram" ? "Telegram" : m.channel === "whatsapp" ? "WhatsApp" : m.channel === "sms" ? "SMS" : t("adv_voice")}</span>
             <span className={`pill ${m.status === "delivered" || m.status === "read" ? "p-good" : m.status === "failed" ? "p-bad" : m.status === "simulated" ? "p-warn" : "adv-neutral"}`}>{t("msg_" + m.status)}</span>
             <span className="note">{new Date(m.createdAt).toLocaleString("en-GB")}</span></div>
           <p style={{ margin: "8px 0 0" }}>{m.body}</p>

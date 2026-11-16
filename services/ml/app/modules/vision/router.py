@@ -1,4 +1,5 @@
 from typing import List, Literal, Optional
+import os
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
@@ -43,6 +44,8 @@ async def photo_quality(files: List[UploadFile] = File(...)):
 async def add_to_gallery(files: List[UploadFile] = File(...), grade: Literal["A", "B", "REJECT"] = Form(...),
                          source: str = Form("farmer_doctor"), ref: Optional[str] = Form(None)):
     """Doctor-confirmed photos become reference examples; the learned grader retrains when there are enough."""
+    if os.getenv("VERCEL"):
+        raise HTTPException(503, "Vision gallery training requires persistent storage and is disabled on the Vercel inference deployment.")
     return service.learn(await _read(files), grade, source, ref)
 
 

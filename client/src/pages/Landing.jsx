@@ -6,7 +6,7 @@ import { useI18n } from "../i18n/index.jsx";
 import { LangChips } from "../components/ui.jsx";
 import { Brand } from "../components/Layout.jsx";
 import Icon from "../components/Icon.jsx";
-import WhatsAppButton from "../components/WhatsAppButton.jsx";
+import TelegramButton from "../components/TelegramButton.jsx";
 import { TEXT } from "./landing/text.js";
 import "./landing/landing.css";
 import LiveBoard from "./landing/LiveBoard.jsx";
@@ -175,7 +175,7 @@ export default function Landing() {
             <div className="lp-cta-row">
               <button className="lp-btn primary big" onClick={() => nav("/login/farmer")}>{L.hero.cta1}<Icon name="arrowRight" size={16} /></button>
               <button className="lp-btn light big" onClick={() => nav("/login/buyer")}>{L.hero.cta2}</button>
-              <WhatsAppButton className="big" />
+              <TelegramButton className="big" />
             </div>
           </div>
           <HeroArt />

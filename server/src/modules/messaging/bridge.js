@@ -16,7 +16,7 @@ export function bridgeNotifications(notifier, messenger) {
   notifier.subscribe?.(async (docs) => {
     for (const n of docs) {
       try {
-        const u = await User.findById(n.user).select("role lang mobile notify waLastInboundAt");
+        const u = await User.findById(n.user).select("role lang mobile notify waLastInboundAt telegramChatId telegramEnabled");
         if (u?.role !== "farmer") continue;
         const L = u.lang || "en", d = n.data || {};
         const map = {

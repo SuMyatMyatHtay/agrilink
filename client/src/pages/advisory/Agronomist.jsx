@@ -218,14 +218,15 @@ export function MessageLog() {
   const [filter, setFilter] = useState("");
   const { data, error, loading } = useApi(`/messages${filter ? `?status=${filter}` : ""}`, { refreshMs: 15000 });
   const st = data?.status;
-  const ch = (c) => (c?.live ? <span className="pill p-good">live</span> : c?.configured ? <span className="pill p-warn">configured, mode {st.mode}</span> : <span className="pill p-warn">simulated (not configured)</span>);
+  const ch = (c) => (c?.live ? <span className="pill p-good">live</span> : c?.configured ? <span className="pill p-warn">configured, mode {c.mode || st.mode}</span> : <span className="pill p-warn">not configured</span>);
   return (
     <div>
       <div className="crumbs"><Link to="/ops/agronomist">Agronomist workspace</Link> / Message log</div>
-      <div className="page-head"><div><h1>Message log</h1><p className="sub">Every WhatsApp, SMS and voice message with its real status. "Simulated" means development mode: nothing reached the farmer.</p></div></div>
+      <div className="page-head"><div><h1>Message log</h1><p className="sub">Telegram and other channel messages with their real status. "Simulated" means nothing was sent; "sent" means accepted by the provider.</p></div></div>
       {loading && !data && <Loading />}
       {error && <ErrorBox error={error} />}
       {st && <div className="grid kpis" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
+        <div className="card kpi"><div className="l">Telegram bot</div><div className="v sm">{ch(st.telegram)}</div></div>
         <div className="card kpi"><div className="l">WhatsApp Cloud API</div><div className="v sm">{ch(st.whatsapp)}</div></div>
         <div className="card kpi"><div className="l">SMS gateway ({st.sms.provider})</div><div className="v sm">{ch(st.sms)}</div>{st.sms.dltRequired && <div className="d">DLT templates required</div>}</div>
         <div className="card kpi"><div className="l">Voice notes</div><div className="v sm">{st.voice.configured ? <span className="pill p-good">available</span> : <span className="pill adv-neutral">not configured</span>}</div></div>

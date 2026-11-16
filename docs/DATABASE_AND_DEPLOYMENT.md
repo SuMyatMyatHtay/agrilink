@@ -1,5 +1,7 @@
 # Database setup and hosting decision
 
+Current client/server/ML build settings: [deploy/HOSTING.md](../deploy/HOSTING.md). Telegram setup: [TELEGRAM.md](TELEGRAM.md).
+
 ## First step: create MongoDB Atlas
 
 Keep the current React/Vite + Express + MongoDB stack for the first database milestone. MongoDB uses **collections**, rather than SQL tables. You do not need Supabase, Firebase, or a MongoDB API key. You need a MongoDB **driver connection URI** containing a database username and password.
@@ -22,7 +24,7 @@ Keep the current React/Vite + Express + MongoDB stack for the first database mil
    npm start
    ```
 
-`db:check` pings the configured database. `db:init` creates all 14 Node collections and declared indexes without deleting records or existing indexes. Resolve duplicate-data/index errors before proceeding. There are no SQL migrations to paste into Atlas.
+`db:check` pings the configured database. `db:init` creates all 16 Node collections and declared indexes without deleting records or existing indexes. Resolve duplicate-data/index errors before proceeding. There are no SQL migrations to paste into Atlas.
 
 `seed` adds four sample buyers, four future-dated sample requirements, and an onboarded farmer only when there are no requirements. Re-running it retains existing requirements. This is development data; use a dedicated development database. Sample company names are illustrative, not evidence of real buyers or commercial activity. Sample mobile numbers are identifiers; no messages are sent by seeding. Farmer: `9888888801`; buyers: `6500000001` through `6500000004`; current demo OTP: `1234` unless changed in `.env`.
 
@@ -103,7 +105,8 @@ References: [Vercel runtimes](https://vercel.com/docs/functions/runtimes), [WebS
 | SMS notifications | Choose one provider: MSG91 (`MSG91_AUTH_KEY` + DLT details), Twilio (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM`), or generic HTTP | Adapters exist; delivery unverified; separate from login OTP |
 | WhatsApp speech output | Google Cloud project, billing + Text-to-Speech API; `TTS_PROVIDER=google`, `GOOGLE_TTS_API_KEY` | Adapter exists; unverified without credentials |
 | Browser STT/TTS | No account/API key; browser speech recognition/synthesis | Browser/voice/language support varies; microphone needs HTTPS or localhost |
-| Telegram / uploaded-audio STT | No implemented provider | Requires implementation; no invented env keys |
+| Telegram text bot | BotFather token/username and webhook secret; `TELEGRAM_*`, `MESSAGING_CHANNELS=telegram` | Implemented foundation; see TELEGRAM.md. No WhatsApp business account needed |
+| Uploaded-audio STT | No implemented provider | Not implemented |
 | Conversational AI | Anthropic or compatible hosted endpoint; `ASSISTANT_API_KEY`, `ASSISTANT_PROVIDER`, `ASSISTANT_BASE_URL`, `ASSISTANT_MODEL`; set `ASSISTANT_MODE=ai` | Basic mode works without a key; configure an actual supported model, do not rely on the existing default model string |
 | Forecast/grading | Host existing Python service; `ML_URL`; optional `DATA_GOV_IN_API_KEY` on ML host | Custom/sample-trained models; not replaced by assistant API |
 | Blockchain | Hosted RPC, dedicated signing wallet and deployed registry; `CHAIN_RPC`, `CHAIN_PRIVATE_KEY`, `CHAIN_DEPLOYMENT` | Local Hardhat defaults are development-only; deployment artifacts still needed |
@@ -135,8 +138,8 @@ This requires a MongoDB replica set or sharded cluster; Atlas supports this. The
 
 On API restart, existing requirements without `reserved` are backfilled from their unsigned, non-cancelled commitments. This retains existing data. If historical drafts already exceed demand, they consume all available quantity until released; the migration does not silently cancel them. Claims remain held until released or declined; no automatic expiry timer is implemented. A draft can be released from the agreement page. Declining before signing releases the claim; cancelled agreements remain in history. Fully signed agreements move reserved quantity to filled even if optional blockchain registration fails or is disabled.
 
-The farmer homepage shows a compact red banner only when open requests have not yet been viewed by that farmer. Opening Offers marks the requests displayed there as viewed in MongoDB; refreshing or logging in again does not restore the banner for those requests. A later new request brings the banner back. Viewed tracking is independent of clearing the notification bell, and each farmer has their own state. Requests update through Socket.IO, with a 15-second polling fallback. Buyer tables include reserved quantities in claimed totals. Farmer navigation keeps Home, Offers, Agreements and Profile prominent, with Planning & advice and Farm tools collapsed by default. Mobile provides the same secondary tools in a More menu.
+The farmer homepage shows a compact red banner when a new-request notification has not yet been acknowledged by that farmer. Clicking its "Click here to view" link dismisses the alert immediately, persists the acknowledgement, and opens Offers. Opening Offers marks the requests displayed there as viewed in MongoDB; refreshing or logging in again does not restore the banner for those requests. A later new request brings the banner back. Viewed tracking is independent of clearing the notification bell, and each farmer has their own state. Requests update through Socket.IO, with a 15-second polling fallback. Buyer tables include reserved quantities in claimed totals. Farmer navigation keeps Home, Offers, Agreements and Profile prominent, with Planning & advice and Farm tools collapsed by default. Mobile provides the same secondary tools in a More menu.
 
-Posting creates in-app notifications for onboarded farmers, and `req_new` now also maps to the WhatsApp `new_requirement` template. To enable real delivery, configure the existing Meta variables, set live messaging, and register/approve `agrilink_new_requirement` in **English**, with body parameters in this order: buyer, grade, tons, USD price/kg, application link. The initial template is English only; other language preferences fall back to English. Template text lives in `server/src/modules/messaging/templates.js`. Public app URLs must be reachable HTTPS URLs for real phones. No additional API key is needed for this event.
+Posting creates in-app notifications for onboarded farmers. The notification bridge now supports Telegram as the preferred channel; see TELEGRAM.md. The legacy WhatsApp adapter also maps `req_new` to `new_requirement`. To enable real delivery, configure the existing Meta variables, set live messaging, and register/approve `agrilink_new_requirement` in **English**, with body parameters in this order: buyer, grade, tons, USD price/kg, application link. The initial template is English only; other language preferences fall back to English. Template text lives in `server/src/modules/messaging/templates.js`. Public app URLs must be reachable HTTPS URLs for real phones. No additional API key is needed for this event.
 
 Current verified configuration: messaging simulated; WhatsApp credentials absent. Consequently no real WhatsApp delivery was performed. In simulated mode an attempt is logged as `simulated`, never `delivered`. Provider acceptance is `sent`; delivery/read status comes from provider webhooks.

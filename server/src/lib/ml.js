@@ -14,7 +14,7 @@ export function createMl(baseUrl) {
         method: body ? "POST" : "GET",
         headers: body ? { "content-type": "application/json" } : undefined,
         body: body ? JSON.stringify(body) : undefined,
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(Math.min(60000, Math.max(500, Number(process.env.ML_TIMEOUT_MS) || 5000))),
       });
     } catch {
       throw new HttpError(502, "Forecast service unavailable", "ml_unavailable");

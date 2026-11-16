@@ -13,7 +13,7 @@ const eventSchema = new mongoose.Schema({ at: Date, status: String, detail: Stri
 
 const logSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: "User", index: true },
-  channel: { type: String, enum: ["whatsapp", "sms", "voice"], index: true },
+  channel: { type: String, enum: ["telegram", "whatsapp", "sms", "voice"], index: true },
   template: String,
   lang: String,
   to: String,                         // masked number for display
@@ -32,4 +32,6 @@ const logSchema = new mongoose.Schema({
   events: [eventSchema],
 }, { timestamps: true });
 
+logSchema.index({ user: 1, channel: 1, template: 1, dedupeKey: 1 }, { unique: true,
+  partialFilterExpression: { channel: "telegram", dedupeKey: { $type: "string" } } });
 export const MessageLog = mongoose.models.MessageLog || mongoose.model("MessageLog", logSchema);

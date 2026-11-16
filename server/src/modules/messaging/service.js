@@ -2,9 +2,10 @@ import { User } from "../users/model.js";
 import { MessageLog } from "./model.js";
 import { ProviderError, indianNumber, messagingMode, smsProvider, ttsProvider, whatsappProvider } from "./providers.js";
 import { LANG_CODES, SPEECH_CODES, TEMPLATES, render } from "./templates.js";
+import { telegramProvider, telegramMode, telegramEnabled } from "../telegram/provider.js";
 
 /**
- * Farmer messaging over WhatsApp, SMS and (optionally) WhatsApp voice notes.
+ * Farmer messaging over Telegram, with legacy WhatsApp/SMS/voice adapters.
  *   - Templates are rendered in the farmer's language (templates.js).
  *   - Every attempt is written to MessageLog with its real outcome; simulated mode is labelled as such.
  *   - Retryable failures (network, 5xx, 429) are retried with backoff (2, 10, 30 minutes), max 3 attempts.
@@ -16,12 +17,13 @@ const MAX_ATTEMPTS = 3;
 const mask = (n) => (n ? `${String(n).slice(0, 4)}••••${String(n).slice(-2)}` : "");
 
 export function createMessenger(inject = {}) {
-  const P = () => ({ whatsapp: inject.whatsapp || whatsappProvider(), sms: inject.sms || smsProvider(), tts: inject.tts || ttsProvider() });
+  const P = () => ({ telegram: inject.telegram || telegramProvider(), whatsapp: inject.whatsapp || whatsappProvider(), sms: inject.sms || smsProvider(), tts: inject.tts || ttsProvider() });
   const mode = () => inject.mode || messagingMode();
 
   function status() {
     const p = P();
     return { mode: mode(),
+      telegram: { provider: "telegram", configured: p.telegram.configured, mode: inject.telegramMode || telegramMode(), live: p.telegram.configured && (inject.telegramMode || telegramMode()) === "live" },
       whatsapp: { provider: p.whatsapp.name, configured: p.whatsapp.configured, live: mode() !== "simulated" && p.whatsapp.configured },
       sms: { provider: p.sms.name, configured: p.sms.configured, live: mode() !== "simulated" && p.sms.configured, dltRequired: !!p.sms.needsDlt },
       voice: { provider: p.tts.name, configured: p.tts.configured && p.whatsapp.configured },
@@ -31,9 +33,10 @@ export function createMessenger(inject = {}) {
   const event = (log, status, detail) => { log.events.push({ at: new Date(), status, detail: detail ? String(detail).slice(0, 300) : undefined }); };
 
   async function attempt(log, user, extra = {}) {
-    const p = P(), m = mode();
-    const prov = log.channel === "sms" ? p.sms : p.whatsapp;
+    const p = P(), m = log.channel === "telegram" ? inject.telegramMode || telegramMode() : mode();
+    const prov = log.channel === "telegram" ? p.telegram : log.channel === "sms" ? p.sms : p.whatsapp;
     log.attempts += 1;
+    if (log.channel === "telegram" && (!user?.telegramChatId || user.telegramEnabled === false)) { log.status = "skipped"; event(log, "skipped", "Telegram not linked or notifications paused"); return log.save(); }
     if (log.channel === "voice") {
       const windowOpen = user?.waLastInboundAt && Date.now() - new Date(user.waLastInboundAt) < 24 * 3600 * 1000;
       if (m !== "simulated" && (!p.tts.configured || !p.whatsapp.configured)) { log.status = "skipped"; event(log, "skipped", "voice needs TTS_PROVIDER + WhatsApp credentials"); return log.save(); }
@@ -48,8 +51,9 @@ export function createMessenger(inject = {}) {
     log.mode = "live"; log.provider = prov.name;
     try {
       let r;
-      const to = indianNumber(user.mobile);
-      if (log.channel === "whatsapp") r = await p.whatsapp.sendTemplate({ to, key: log.template, langCode: LANG_CODES[log.lang] || "en", params: log.params });
+      const to = log.channel === "telegram" ? user.telegramChatId : indianNumber(user.mobile);
+      if (log.channel === "telegram") r = await p.telegram.sendText({ to, text: log.body });
+      else if (log.channel === "whatsapp") r = await p.whatsapp.sendTemplate({ to, key: log.template, langCode: LANG_CODES[log.lang] || "en", params: log.params });
       else if (log.channel === "sms") r = await p.sms.send({ to, key: log.template, lang: log.lang, body: log.body, params: log.params });
       else {
         const audio = await p.tts.synthesize(extra.voiceText || log.body, SPEECH_CODES[log.lang] || "en-IN");
@@ -69,19 +73,22 @@ export function createMessenger(inject = {}) {
 
   /** Send one template to a farmer on every channel they allow. Returns the log rows. */
   async function dispatch(userOrId, key, params, { source, dedupeKey, voiceText, channels } = {}) {
-    const user = userOrId?._id ? userOrId : await User.findById(userOrId);
+    const user = userOrId?.role ? userOrId : await User.findById(userOrId?._id || userOrId);
     if (!user || user.role !== "farmer" || !TEMPLATES[key]) return [];
     if (dedupeKey && await MessageLog.exists({ user: user._id, template: key, dedupeKey })) return [];
     const r = render(key, user.lang || "en", params);
+    const allowed = (process.env.MESSAGING_CHANNELS || (telegramEnabled() ? "telegram" : "whatsapp,sms,voice")).split(",").map((s) => s.trim());
     const want = channels || [
-      user.notify?.whatsapp !== false && "whatsapp",
-      r.sms && user.notify?.sms !== false && "sms",
-      user.notify?.voice && voiceText && "voice",
+      allowed.includes("telegram") && user.telegramChatId && user.telegramEnabled !== false && "telegram",
+      allowed.includes("whatsapp") && user.notify?.whatsapp !== false && "whatsapp",
+      allowed.includes("sms") && r.sms && user.notify?.sms !== false && "sms",
+      allowed.includes("voice") && user.notify?.voice && voiceText && "voice",
     ].filter(Boolean);
     const out = [];
     for (const channel of want) {
-      const log = new MessageLog({ user: user._id, channel, template: key, lang: r.lang, to: mask(indianNumber(user.mobile)), body: channel === "voice" ? voiceText : r.body,
+      const log = new MessageLog({ user: user._id, channel, template: key, lang: r.lang, to: channel === "telegram" ? `chat:***${user.telegramChatId?.slice(-3)}` : mask(indianNumber(user.mobile)), body: channel === "voice" ? voiceText : r.body,
         params: r.ordered, status: "queued", dedupeKey, source, events: [{ at: new Date(), status: "queued" }] });
+      if (channel === "telegram") { try { await log.save(); } catch (error) { if (error.code === 11000) continue; throw error; } }
       out.push(await attempt(log, user, { voiceText }));
     }
     return out;

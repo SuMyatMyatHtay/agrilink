@@ -8,6 +8,7 @@ Forecasts are precomputed at training time; this module only reads the artifact.
 """
 from __future__ import annotations
 
+from ...model_runtime import require_bundled_model
 import joblib
 import pandas as pd
 
@@ -20,6 +21,7 @@ SUPPLY_DESTINATIONS = {"Singapore"}  # supply data currently covers the Singapor
 
 def artifact(retrain: bool = False) -> dict:
     if retrain or "art" not in _cache:
+        require_bundled_model(ARTIFACT)
         if retrain or not ARTIFACT.exists():
             art = train()
         else:

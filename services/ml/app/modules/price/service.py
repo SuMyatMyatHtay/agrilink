@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from datetime import date
 
+from ...model_runtime import require_bundled_model
 import joblib
 import numpy as np
 import pandas as pd
@@ -26,6 +27,7 @@ _cache: dict = {}
 
 def artifact(retrain: bool = False) -> dict:
     if retrain or "art" not in _cache:
+        require_bundled_model(ARTIFACT)
         _cache.clear()
         _cache["art"] = train() if (retrain or not ARTIFACT.exists()) else joblib.load(ARTIFACT)
     return _cache["art"]

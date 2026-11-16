@@ -45,6 +45,7 @@ export function RealtimeProvider({ children }) {
   const [unread, setUnread] = useState(0);
   const [connected, setConnected] = useState(false);
   const [unseenRequestIds, setUnseenRequestIds] = useState([]);
+  const viewedRequestIds = useRef(new Set());
   const listeners = useRef(new Set());
   const tRef = useRef(t);
   tRef.current = t;
@@ -54,11 +55,12 @@ export function RealtimeProvider({ children }) {
       const r = await api("/notifications");
       setItems(r.items);
       setUnread(r.unread);
-      setUnseenRequestIds(r.unseenRequestIds || []);
+      setUnseenRequestIds((r.unseenRequestIds || []).filter((id) => !viewedRequestIds.current.has(id)));
     } catch { /* offline */ }
   }, []);
 
   useEffect(() => {
+    viewedRequestIds.current.clear();
     if (!user) { setItems([]); setUnread(0); setUnseenRequestIds([]); return undefined; }
     load();
     const poll = setInterval(load, 15000);
@@ -66,7 +68,7 @@ export function RealtimeProvider({ children }) {
     socket.on("connect", () => { setConnected(true); load(); }); // catch up on anything missed while offline
     socket.on("disconnect", () => setConnected(false));
     socket.on("notification", (n) => {
-      if (n.type === "req_new" && n.data?.reqId) setUnseenRequestIds((ids) => [...new Set([...ids, n.data.reqId])]);
+      if (n.type === "req_new" && n.data?.reqId && !viewedRequestIds.current.has(n.data.reqId)) setUnseenRequestIds((ids) => [...new Set([...ids, n.data.reqId])]);
       setItems((xs) => [n, ...xs].slice(0, 30));
       setUnread((u) => u + 1);
       const text = notifText(n, tRef.current);
@@ -89,11 +91,18 @@ export function RealtimeProvider({ children }) {
   }, []);
 
   const markRequestsViewed = useCallback(async (requestIds) => {
-    for (let i = 0; i < requestIds.length; i += 200) {
-      await api("/notifications/requests/viewed", { method: "POST", body: { requestIds: requestIds.slice(i, i + 200) } });
-    }
+    requestIds.forEach((id) => viewedRequestIds.current.add(id));
     setUnseenRequestIds((ids) => ids.filter((id) => !requestIds.includes(id)));
-    await load();
+    try {
+      for (let i = 0; i < requestIds.length; i += 200) {
+        await api("/notifications/requests/viewed", { method: "POST", body: { requestIds: requestIds.slice(i, i + 200) } });
+      }
+      await load();
+    } catch (error) {
+      requestIds.forEach((id) => viewedRequestIds.current.delete(id));
+      await load();
+      throw error;
+    }
   }, [load]);
 
   return <RealtimeCtx.Provider value={{ items, unread, connected, onChange, markAllRead, unseenRequestIds, markRequestsViewed }}>{children}</RealtimeCtx.Provider>;

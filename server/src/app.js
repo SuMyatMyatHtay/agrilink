@@ -42,3 +42,19 @@ export function createApp(injected) {
   app.use(errorHandler);
   return app;
 }
+
+// Vercel detects this file before src/index.js. Export a request handler,
+// and initialize dependencies once per warm instance rather than opening a port.
+let runtime;
+const vercelApp = express();
+vercelApp.use((req, res, next) => {
+  if (!runtime) {
+    runtime = import("./serverless.js").then(({ initializeServerless }) => initializeServerless())
+      .catch((error) => { runtime = undefined; throw error; });
+  }
+  runtime.then((app) => app(req, res, next)).catch((error) => {
+    console.error("API initialization failed", { name: error.name, code: error.code });
+    res.status(503).json({ error: "api_initialization_failed" });
+  });
+});
+export default vercelApp;

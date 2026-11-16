@@ -1,4 +1,5 @@
 # AgriLink
+Telegram bot setup and linking: [docs/TELEGRAM.md](docs/TELEGRAM.md).
 For production build settings, the shared admin portal, hosting order and per-service environment templates, see [Hosting the current app](deploy/HOSTING.md).
 Trade-and-trust platform for perishable Alphonso mango exports, India -> Singapore.
 Stack: **React (Vite) + Node/Express + MongoDB** (MERN) with **Python FastAPI** for forecasting, grading and alerts. See `docs/ARCHITECTURE.md`.
