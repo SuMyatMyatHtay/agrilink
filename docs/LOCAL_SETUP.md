@@ -55,11 +55,13 @@ The existing Docker Compose file does not start Module 2 or blockchain; use the 
 
 ### Click-through walkthrough
 
-The local client now enables `VITE_DEMO_MODE=true`. This adds a one-click sample farm on onboarding, automatic farm setup for the three demo farmer login buttons, role-switch shortcuts, sample Mitra replies and mandi prices, and sample crop records/photos. A demo consultant shortcut opens the appropriate review desk. These shortcuts are disabled when the flag is false; provider credentials remain server-side.
+`VITE_DEMO_MODE=true` now selects a self-contained frontend walkthrough. Production builds default to this walkthrough unless `VITE_DEMO_MODE=false` is explicitly configured. No database, API keys, authentication server, ML service or blockchain is used. Demo login opens a sample farm, followed by offers, agreement signing, a simulated quality review and confirmation. Progress is kept in browser local storage; Restart demo clears the sample transaction. The downloaded agreement is a labelled sample text file.
 
 Browser button checks passed for onboarding, sample chat, crop submission, buyer requirement publishing, commitment creation, buyer draft sending, both signatures, blockchain registration, consultant approval and certificate issuance. The two `demo-*.jpg` assets are synthetic fixtures produced by the existing ML test image generator. They are labelled sample images in the form.
 
-The walkthrough still runs against the local services already started; it is not an offline standalone frontend. Demo data and successful actions persist in the local database.
+The earlier full-app browser checks above used local services. The new static walkthrough was separately tested against the production build with all API requests blocked: login, offer selection, quantity changes, sample signing, quality approval, confirmation, refresh persistence, download and restart passed with zero API calls and no browser errors.
+
+For Vercel, retain the client's SPA rewrite configuration and set `VITE_DEMO_MODE=true` (or leave it unset for a production build). Push the updated client source and redeploy; changing an environment variable alone cannot update an older bundle. Set the flag to false only when using the full application and a separately configured backend.
 
 - Client production build passed; a bundle-size advisory remains.
 - Server: 25 tests passed. ML: 43 tests passed. Module 2: 57 tests passed. Blockchain: 4 tests passed.
