@@ -1,0 +1,73 @@
+import { useEffect, useState } from "react";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { DEMO_FARMS, demoReply } from "./demo.js";
+import { LandingPage, WelcomePhoto } from "./pages/Landing.jsx";
+import "./static-demo.css";
+
+const KEY = "agrilink-static-walkthrough-v2";
+const profiles = {
+  farmer: Object.entries(DEMO_FARMS).map(([id, farm]) => ({ id, name: farm.name, detail: `${farm.farm.village} · ${farm.farm.acres} acres`, farm })),
+  buyer: [{ id: "fairprice", name: "FairPrice Fresh", detail: "Singapore importer" }, { id: "mustafa", name: "Mustafa Centre Imports", detail: "Singapore wholesale buyer" }],
+  operations: [{ id: "admin", name: "AgriLink Operations", detail: "Operations overview" }, { id: "fpo", name: "Devgad FPO Officer", detail: "Farm coordination and dispatch" }, { id: "doctor", name: "Demo Farmer Doctor", detail: "Quality reviews and certification" }],
+};
+const offers = [{ id: "fairprice", buyer: "FairPrice Fresh", price: 5.2, grade: "A", tons: 20 }, { id: "mustafa", buyer: "Mustafa Centre Imports", price: 4.8, grade: "A", tons: 12 }, { id: "sheng", buyer: "Sheng Siong Wholesale", price: 3.6, grade: "B", tons: 15 }];
+const defaults = { farmer: profiles.farmer[0].id, buyer: "fairprice", operations: "admin", requirements: [], offer: null, quantity: 1, signed: false, buyerSigned: false, quality: "Pending review", shipment: "Ready to dispatch" };
+const money = (n) => Number(n).toLocaleString("en-US", { style: "currency", currency: "USD" });
+
+function DemoLogin({ role, enter }) {
+  const [mobile, setMobile] = useState("");
+  const [otp, setOtp] = useState("");
+  const [error, setError] = useState("");
+  const title = { farmer: "Farmer", buyer: "Buyer", operations: "Operations" }[role];
+  return <div className="welcome"><WelcomePhoto /><section className="welcome-panel"><div className="auth-card">
+    <Link className="linkbtn" to="/">← Back to home</Link><h1>{title} login</h1>
+    <p className="sub">Choose a sample profile below to explore. No real account or SMS is needed.</p>
+    <div className="demo-logins">{profiles[role].map((p) => <button className="demo-user" key={p.id} onClick={() => enter(p.id)}><span className="demo-avatar">{p.name.split(" ").slice(0, 2).map((s) => s[0]).join("")}</span><span><b>{p.name}</b><small>{p.detail}</small></span><span>→</span></button>)}</div>
+    <form onSubmit={(e) => { e.preventDefault(); if (!/^\d{10}$/.test(mobile)) return setError("Enter a 10-digit demo number or choose a profile above."); if (otp !== "1234") return setError("Use 1234 for this demo."); enter(profiles[role][0].id); }}>
+      <label>Demo mobile number<input inputMode="numeric" maxLength={10} value={mobile} onChange={(e) => setMobile(e.target.value)} placeholder="Any 10-digit number" /></label>
+      <label>Demo OTP<input inputMode="numeric" maxLength={4} value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="1234" /></label>
+      {error && <p role="alert" className="down">{error}</p>}<button className="btn big">Open demo</button>
+    </form>
+  </div></section></div>;
+}
+
+export default function StaticDemo() {
+  const nav = useNavigate();
+  const { pathname } = useLocation();
+  const [data, setData] = useState(() => { try { return { ...defaults, ...JSON.parse(localStorage.getItem(KEY) || "null") }; } catch { return defaults; } });
+  const [notice, setNotice] = useState("");
+  const [signature, setSignature] = useState("");
+  const [consent, setConsent] = useState(false);
+  const [question, setQuestion] = useState("");
+  const [reply, setReply] = useState("");
+  const [form, setForm] = useState({ tons: 10, price: 5.2, grade: "A" });
+  useEffect(() => { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch { /* Works without storage too. */ } }, [data]);
+  const update = (patch) => setData((old) => ({ ...old, ...patch }));
+  const role = /(?:login|demo)\/buyer/.test(pathname) || pathname.startsWith("/buyer") ? "buyer" : /(?:login|demo)\/operations/.test(pathname) || pathname.startsWith("/ops") ? "operations" : "farmer";
+  const profile = profiles[role].find((p) => p.id === data[role]) || profiles[role][0];
+  const farm = profiles.farmer.find((p) => p.id === data.farmer)?.farm || profiles.farmer[0].farm;
+  const go = (tab) => { setNotice(""); nav(`/demo/${role}/${tab}`); };
+  if (pathname === "/") return <LandingPage demo />;
+  if (pathname.startsWith("/login/")) return <DemoLogin key={role} role={role} enter={(id) => { update({ [role]: id }); setNotice(""); nav(`/demo/${role}/home`); }} />;
+  if (pathname === "/login") return <Navigate to="/" replace />;
+  const tab = pathname.split("/")[3] || "home";
+  const menus = role === "farmer" ? [["home", "Your farm"], ["offers", "Buyer offers"], ["agreement", "Agreement"], ["quality", "Quality check"], ["complete", "Confirmation"]] : role === "buyer" ? [["home", "Dashboard"], ["requirements", "Requirements"], ["agreement", "Agreements"], ["shipments", "Shipments"]] : [["home", "Overview"], ["quality", "Quality reviews"], ["dispatch", "Dispatch"], ["certificates", "Certificates"]];
+  const offer = data.offer;
+  const total = offer ? Number(data.quantity) * 1000 * offer.price : 0;
+  const download = (certificate = false) => {
+    const text = certificate ? `AGRILINK DEMO CERTIFICATE\nSample only, not an official certificate\nAGL-DEMO-CERT-001\n${farm.name}\nQuality: ${data.quality}` : `AGRILINK DEMO AGREEMENT\nSample only, not a real contract\nFarmer: ${farm.name}\nBuyer: ${offer?.buyer || profile.name}\nQuantity: ${data.quantity} tonnes\nValue: ${money(total)}\nDemo signature: ${data.signed ? "Signed" : "Pending"}\nNo real payment or blockchain registration.`;
+    const url = URL.createObjectURL(new Blob([text], { type: "text/plain" })); const a = document.createElement("a"); a.href = url; a.download = certificate ? "AgriLink-sample-certificate.txt" : "AgriLink-demo-agreement.txt"; a.click(); URL.revokeObjectURL(url); setNotice("Sample document downloaded.");
+  };
+  return <div className="static-demo"><aside className="static-side"><h2>🌱 AgriLink</h2><p>{profile.name}</p><nav>{menus.map(([id, label]) => <button key={id} className={`chip ${tab === id ? "on" : ""}`} onClick={() => go(id)}>{label}</button>)}</nav><Link className="btn alt" to="/">Back to home</Link></aside><main className="static-main">
+    <div className="demo-toolbar"><span><b>Interactive demo</b> · Sample data. No real messages, payments or registrations.</span><button className="chip" onClick={() => { setData(defaults); setConsent(false); setSignature(""); go("home"); }}>Restart demo</button></div>
+    {notice && <p className="insight" role="status">{notice}</p>}
+    {tab === "home" && <><h1>{role === "farmer" ? "Your farm at a glance" : `Welcome, ${profile.name}`}</h1><div className="grid two"><div className="card"><h3>{role === "farmer" ? "Alphonso mango orchard" : role === "buyer" ? "Sample buyer demand" : "Sample farm operations"}</h3><p>{role === "farmer" ? `${farm.farm.village}, ${farm.farm.district} · ${farm.farm.acres} acres · ${farm.farm.trees} trees` : role === "buyer" ? "20 tonnes requested · Singapore import market" : "6 farms · 32 tonnes expected · 1 sample review"}</p><p>Sample harvest and delivery: April–May 2027</p><button className="btn" onClick={() => go(role === "farmer" ? "offers" : role === "buyer" ? "requirements" : "quality")}>{role === "farmer" ? "Explore buyer offers" : role === "buyer" ? "Post a requirement" : "Review sample batch"}</button></div><div className="card"><h3>{role === "farmer" ? "Ask Mitra" : "Sample trade journey"}</h3>{role === "farmer" ? <form onSubmit={(e) => { e.preventDefault(); setReply(demoReply(question)); }}><input aria-label="Ask Mitra" placeholder="What should I do today?" value={question} onChange={(e) => setQuestion(e.target.value)} /><button className="btn">Ask Mitra</button>{reply && <p role="status">{reply}</p>}</form> : <><p>{farm.name} → {offer?.buyer || "FairPrice Fresh"}</p><p>Track a sample agreement, review and dispatch.</p><button className="btn alt" onClick={() => go(role === "buyer" ? "agreement" : "dispatch")}>View sample trade</button></>}</div></div></>}
+    {tab === "offers" && <><h1>Buyer offers</h1><div className="offers-grid">{[...offers, ...data.requirements].map((o) => <div className="card" key={o.id}><h3>{o.buyer}</h3><p>Grade {o.grade} · {o.tons} tonnes requested</p><div className="bigprice">{money(o.price)}/kg</div><p>Sample delivery: 10 May 2027</p><button className="btn" onClick={() => { update({ offer: o, signed: false, buyerSigned: false, quality: "Pending review" }); setConsent(false); go("agreement"); }}>Choose this offer</button></div>)}</div></>}
+    {tab === "requirements" && <><h1>Buyer requirements</h1><form className="card" onSubmit={(e) => { e.preventDefault(); update({ requirements: [...data.requirements, { id: `sample-${Date.now()}`, buyer: profile.name, tons: Number(form.tons), price: Number(form.price), grade: form.grade }] }); setNotice("Demo requirement published. It is visible in the Farmer demo's Buyer offers."); }}><label>Grade<select value={form.grade} onChange={(e) => setForm({ ...form, grade: e.target.value })}>{["A", "B", "C"].map((g) => <option key={g}>{g}</option>)}</select></label><label>Quantity (tonnes)<input required type="number" min="0.1" step="0.1" value={form.tons} onChange={(e) => setForm({ ...form, tons: e.target.value })} /></label><label>Price (USD/kg)<input required type="number" min="0.1" step="0.1" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} /></label><button className="btn">Publish demo requirement</button></form>{data.requirements.filter((r) => r.buyer === profile.name).map((r) => <p className="card" key={r.id}>{r.tons} tonnes · Grade {r.grade} · {money(r.price)}/kg</p>)}</>}
+    {tab === "agreement" && <><h1>Review and sign</h1>{role === "farmer" && !offer ? <div className="card"><p>Choose an offer to start.</p><button className="btn" onClick={() => go("offers")}>Choose an offer</button></div> : <div className="card"><h3>Sample agreement · AGL-DEMO-001</h3><p>{farm.name} → {offer?.buyer || profile.name}</p><p>Sample delivery: 10 May 2027 · Payment terms: 30% advance, 70% after receipt.</p>{role === "farmer" ? <><label>Quantity (tonnes)<input disabled={data.signed} type="number" min="0.1" max="6" step="0.1" value={data.quantity} onChange={(e) => update({ quantity: e.target.value })} /></label><p>Total sample value: {money(total)}</p>{data.signed ? <><p>✓ Demo signature saved.</p><button className="btn" onClick={() => go("quality")}>Continue to quality check</button><button className="btn alt" onClick={() => download()}>Download sample agreement</button></> : <form onSubmit={(e) => { e.preventDefault(); if (!(Number(data.quantity) > 0 && Number(data.quantity) <= 6)) return setNotice("Choose between 0.1 and 6 tonnes."); update({ signed: true }); setNotice("Demo agreement signed. No real contract was created."); }}><label>Your name<input required value={signature} onChange={(e) => setSignature(e.target.value)} /></label><label><input type="checkbox" required style={{ width: "auto" }} checked={consent} onChange={(e) => setConsent(e.target.checked)} /> I confirm this is a sample signature.</label><button className="btn">Sign demo agreement</button></form>}</> : <><p>{data.quantity} tonnes · {money(offer?.price || 5.2)}/kg</p><p>Status: {data.buyerSigned ? "Demo buyer signed" : "Awaiting buyer review"}</p><button className="btn" disabled={data.buyerSigned} onClick={() => { update({ buyerSigned: true }); setNotice("Demo buyer signature recorded."); }}>Approve and sign demo agreement</button></>}</div>}</>}
+    {tab === "quality" && <><h1>Sample quality check</h1>{role === "farmer" && !data.signed ? <div className="card"><p>Sign the sample agreement first.</p><button className="btn" onClick={() => go("agreement")}>Review agreement</button></div> : <div className="card"><h3>LOT-DEMO-001 · {farm.name}</h3><img src="/img/demo-mango.jpg" alt="Generated mango image for this demo" style={{ width: "100%", maxWidth: 320, borderRadius: 16 }} /><p>Synthetic sample image · Illustrative grade A · Score 94/100</p><p>Status: {data.quality}</p>{data.quality === "Approved" ? <button className="btn" onClick={() => go(role === "farmer" ? "complete" : "certificates")}>{role === "farmer" ? "View confirmation" : "View sample certificate"}</button> : <button className="btn" onClick={() => { update({ quality: "Approved" }); setNotice("Sample quality review approved. Demo certificate ready."); }}>{role === "farmer" ? "Simulate consultant approval" : "Approve sample batch"}</button>}{role === "operations" && <><button className="btn alt" onClick={() => { update({ quality: "Correction requested" }); setNotice("Demo correction requested."); }}>Request correction</button><button className="btn alt" onClick={() => { update({ quality: "Rejected" }); setNotice("Demo batch rejected."); }}>Reject sample batch</button></>}</div>}</>}
+    {tab === "complete" && <><h1>{data.signed && data.quality === "Approved" ? "Your demo trade is ready!" : "Continue your sample trade"}</h1><div className="card">{data.signed && data.quality === "Approved" && offer ? <><p>{data.quantity} tonnes → {offer.buyer} · {money(total)}</p><p>Sample certificate: AGL-DEMO-CERT-001</p><p>No real money moved or blockchain registration occurred.</p><button className="btn" onClick={() => download()}>Download sample agreement</button></> : <button className="btn" onClick={() => go(data.signed ? "quality" : "agreement")}>Continue walkthrough</button>}</div></>}
+    {(tab === "dispatch" || tab === "shipments") && <><h1>Sample shipment</h1><div className="card"><h3>LOT-DEMO-001 · Konkan → Singapore</h3><p>Status: <b>{data.shipment}</b></p><p>Sample cold-chain temperature: 13°C</p><button className="btn" disabled={data.shipment === (role === "buyer" ? "Received" : "Dispatched")} onClick={() => { update({ shipment: role === "buyer" ? "Received" : "Dispatched" }); setNotice(role === "buyer" ? "Demo receipt confirmed." : "Demo dispatch recorded. No actual shipment booked."); }}>{role === "buyer" ? "Confirm demo receipt" : "Mark demo dispatched"}</button></div></>}
+    {tab === "certificates" && <><h1>Sample certificates</h1><div className="card"><h3>AGL-DEMO-CERT-001</h3><p>{farm.name} · LOT-DEMO-001</p><p>{data.quality === "Approved" ? "Demo approved" : "Preview only · approval pending"}</p><p>This is an illustrative record, not an official certificate.</p><button className="btn" onClick={() => download(true)}>Download sample certificate</button></div></>}
+  </main></div>;
+}

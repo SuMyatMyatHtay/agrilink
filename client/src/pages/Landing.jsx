@@ -113,13 +113,14 @@ function HeroArt() {
   return <div className="lp-hero-art reveal"><img src="/img/lp/hero.svg" alt="" width="560" height="500" /></div>;
 }
 
-function Contact({ L }) {
+function Contact({ L, demo = false }) {
   const C = L.contact;
   const [f, setF] = useState({ name: "", contact: "", role: C.roles[0], message: "" });
   const [state, setState] = useState("idle");
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const send = async (e) => {
     e.preventDefault();
+    if (demo) { setState("sent"); return; }
     setState("busy");
     try { await api("/contact", { method: "POST", body: f }); setState("sent"); setF({ ...f, message: "" }); }
     catch { setState("err"); }
@@ -145,7 +146,7 @@ function Contact({ L }) {
           </label>
           <label>{C.msg}<textarea required minLength={5} maxLength={2000} rows={5} value={f.message} onChange={set("message")} /></label>
           <button className="lp-btn primary big" disabled={state === "busy"}>{C.send}<Icon name="arrowRight" size={16} /></button>
-          {state === "sent" && <p className="lp-ok" role="status">{C.sent}</p>}
+          {state === "sent" && <p className="lp-ok" role="status">{demo ? "Demo message preview complete. No message was sent." : C.sent}</p>}
           {state === "err" && <p className="lp-err" role="alert">{C.err}</p>}
         </form>
       </div>
@@ -154,8 +155,12 @@ function Contact({ L }) {
 }
 
 export default function Landing() {
-  const { lang } = useI18n();
   const { user } = useAuth();
+  return <LandingPage user={user} />;
+}
+
+export function LandingPage({ user = null, demo = false }) {
+  const { lang } = useI18n();
   const nav = useNavigate();
   const L = TEXT[lang] || TEXT.en;
   const active = useActiveSection();
@@ -175,7 +180,7 @@ export default function Landing() {
             <div className="lp-cta-row">
               <button className="lp-btn primary big" onClick={() => nav("/login/farmer")}>{L.hero.cta1}<Icon name="arrowRight" size={16} /></button>
               <button className="lp-btn light big" onClick={() => nav("/login/buyer")}>{L.hero.cta2}</button>
-              <WhatsAppButton className="big" />
+              {!demo && <WhatsAppButton className="big" />}
             </div>
           </div>
           <HeroArt />
@@ -215,7 +220,7 @@ export default function Landing() {
             <h2>{L.realtime.title}</h2>
             <p className="lp-sub">{L.realtime.sub}</p>
           </div>
-          <LiveBoard L={L} />
+          <LiveBoard L={L} demo={demo} />
         </div>
       </section>
 
@@ -243,7 +248,7 @@ export default function Landing() {
         </div>
       </section>
 
-      <Contact L={L} />
+      <Contact L={L} demo={demo} />
 
       <footer className="lp-foot">
         <div className="lp-wrap lp-foot-in">

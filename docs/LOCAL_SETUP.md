@@ -55,6 +55,10 @@ The existing Docker Compose file does not start Module 2 or blockchain; use the 
 
 ### Click-through walkthrough
 
+**Vercel static demo:** the frontend now has a separate `StaticDemo` entry selected by `VITE_DEMO_MODE=true`. Production builds also use it if this setting is absent; explicitly setting it to `false` enables the full backend-dependent app. The original landing page links to separate Farmer, Buyer and Operations login pages. There is no role-switch row on login. Demo logins and actions use browser state/local storage and make no API requests. Keep the client `vercel.json` SPA rewrite, push all updated source files, and redeploy after changes. Do not place server secrets in the frontend environment.
+
+The current production build was tested in Chromium with `/api/**` blocked: farmer login through agreement signing and quality approval, reload persistence, both Buyer profiles, all three Operations profiles, review decisions and sample certificate downloads passed, with zero API requests and no browser exceptions. Original full-stack checks below describe the separate backend-dependent mode.
+
 The local client now enables `VITE_DEMO_MODE=true`. This adds a one-click sample farm on onboarding, automatic farm setup for the three demo farmer login buttons, role-switch shortcuts, sample Mitra replies and mandi prices, and sample crop records/photos. A demo consultant shortcut opens the appropriate review desk. These shortcuts are disabled when the flag is false; provider credentials remain server-side.
 
 Browser button checks passed for onboarding, sample chat, crop submission, buyer requirement publishing, commitment creation, buyer draft sending, both signatures, blockchain registration, consultant approval and certificate issuance. The two `demo-*.jpg` assets are synthetic fixtures produced by the existing ML test image generator. They are labelled sample images in the form.
