@@ -26,7 +26,7 @@ export default function PreSignCheck({ requirementId, tons, bondId }) {
     return () => { alive = false; clearTimeout(id); };
   }, [requirementId, tons, bondId]);
 
-  if (err) return <p className="note">{t("err_generic")}</p>;
+  if (err) return <p className="note">Automatic checks are unavailable. Review the offer terms and your capacity before committing.</p>;
   if (!data) return <p className="note">{t("pc_loading")}</p>;
   const money = (v) => (Math.abs(v) >= 1e5 ? lakh(v, t) : "₹" + Math.round(v).toLocaleString("en-IN"));
 

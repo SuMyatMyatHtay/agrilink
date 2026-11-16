@@ -17,6 +17,7 @@ const farmSchema = new mongoose.Schema(
 const userSchema = new mongoose.Schema(
   {
     mobile: { type: String, required: true, unique: true },
+    allocationVersion: { type: Number, default: 0 },
     role: { type: String, enum: ["farmer", "buyer", "operations"], required: true },
     m2Role: { type: String, enum: ["admin", "fpo", "doctor"] }, // operations users: which farm-operations role they act in
     m2Actor: String,                                             // e.g. OPS-1, FPO-RTN, DOC-RTN

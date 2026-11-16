@@ -27,24 +27,24 @@ export function expectedYield(farm) {
   return { tons, gradeATons: +(tons * share).toFixed(1) };
 }
 
-export async function committedTons(farmerId) {
-  const rows = await Bond.aggregate([{ $match: { farmer: farmerId } }, { $group: { _id: null, t: { $sum: "$tons" } } }]);
+export async function committedTons(farmerId, session = null) {
+  const rows = await Bond.aggregate([{ $match: { farmer: farmerId, status: { $ne: "cancelled" } } }, { $group: { _id: null, t: { $sum: "$tons" } } }]).session(session);
   return +(rows[0]?.t || 0).toFixed(1);
 }
 
 export async function farmSummary(user, ml) {
   const y = expectedYield(user.farm);
   const committed = await committedTons(user._id);
-  const price = await ml.price("A", user.farm.district);
-  const w = price.harvest_window;
+  let w = null;
+  try { w = (await ml.price("A", user.farm.district)).harvest_window; } catch { /* Capacity is independent of optional forecasts. */ }
   return {
     expectedTons: y.tons,
     gradeATons: y.gradeATons,
     committedTons: committed,
     freeTons: Math.max(0, +(y.gradeATons - committed).toFixed(1)),
-    window: { start: w.start, end: w.end },
-    windowAvgPrice: w.avg_price,
-    priceDropPct: w.drop_pct,
-    earningInr: Math.round(y.gradeATons * 1000 * w.avg_price),
+    window: { start: w?.start || "", end: w?.end || "" },
+    windowAvgPrice: w?.avg_price ?? null,
+    priceDropPct: w?.drop_pct ?? null,
+    earningInr: w ? Math.round(y.gradeATons * 1000 * w.avg_price) : null,
   };
 }

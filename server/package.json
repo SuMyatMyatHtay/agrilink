@@ -3,11 +3,18 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22.9.0" },
+  "engines": {
+    "node": ">=22.9.0"
+  },
   "scripts": {
     "start": "node --env-file-if-exists=.env src/index.js",
     "dev": "node --env-file-if-exists=.env --watch src/index.js",
     "seed": "node --env-file-if-exists=.env src/seed.js",
+    "db:init": "node --env-file-if-exists=.env scripts/database.mjs init",
+    "db:check": "node --env-file-if-exists=.env scripts/database.mjs check",
+    "db:schema": "node scripts/database.mjs schema",
+    "test:database": "node --test test/database.test.js",
+    "test:isolated": "node scripts/test-isolated.mjs",
     "test": "node --test \"test/**/*.test.js\""
   },
   "dependencies": {
@@ -21,5 +28,8 @@
     "qrcode": "^1.5.4",
     "socket.io": "^4.8.4",
     "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "mongodb-memory-server": "^11.3.0"
   }
 }

@@ -1,8 +1,0 @@
-.static-demo { min-height:100vh; display:grid; grid-template-columns:240px minmax(0,1fr); }
-.static-side { background:white; border-right:1px solid var(--line); padding:28px 20px; }
-.static-side nav { display:grid; gap:12px; margin:28px 0; }
-.static-side nav button { text-align:left; padding:12px; }
-.static-main { padding:28px; width:100%; max-width:1200px; }
-.static-main .btn { margin-top:12px; }
-.static-main .btn + .btn { margin-left:8px; }
-@media(max-width:760px) { .static-demo { grid-template-columns:1fr; } .static-side { padding:16px; } .static-side nav { display:flex; flex-wrap:wrap; margin:12px 0; } .static-main { padding:18px; } }

@@ -48,7 +48,7 @@ const agreementSchema = new mongoose.Schema({
   buyer: { type: ObjectId, ref: "User", required: true },
   farmer: { type: ObjectId, ref: "User", required: true },
   version: { type: Number, default: 1 },
-  status: { type: String, enum: ["draft", "pending_signature", "signed", "registered", "in_progress", "completed", "disputed"], default: "draft" },
+  status: { type: String, enum: ["cancelled", "draft", "pending_signature", "signed", "registered", "in_progress", "completed", "disputed"], default: "draft" },
   amendmentOf: Number,          // previous version number when this version is an amendment
   amendmentReason: String,
   disputed: { open: Boolean, reason: String, raisedBy: String, at: Date, prevStatus: String },
@@ -64,3 +64,6 @@ const agreementSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 export const Agreement = mongoose.models.Agreement || mongoose.model("Agreement", agreementSchema);
+export const AgreementCounter = mongoose.models.AgreementCounter || mongoose.model("AgreementCounter", new mongoose.Schema({
+  _id: String, base: Number, seq: { type: Number, default: 0 },
+}, { versionKey: false }));

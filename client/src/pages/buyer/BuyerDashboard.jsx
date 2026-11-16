@@ -1,128 +1,107 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../../api.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useApi } from "../../hooks/useApi.js";
-import { Link } from "react-router-dom";
-import { ErrorBox, LineChart, Loading, inr, useToast } from "../../components/ui.jsx";
+import { ErrorBox, Loading } from "../../components/ui.jsx";
+import "./buyer.css";
 
-const USD_INR = 88;
-const GRADES = { A: "A · ≥300 g, deep golden, no blemish", B: "B · 250–300 g, minor blemish", C: "C · 200–250 g, processing/local" };
+const dateAfter = (days) => {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+const initialForm = () => ({ grade: "A", tons: "", priceUsd: "", deliverBy: dateAfter(30), floorUsd: "", escalation: false, pct: "8" });
+const GRADES = { A: "Grade A - premium export quality", B: "Grade B - standard quality", C: "Grade C - processing quality" };
 
-/** Buyer portal (English only for now: buyers are in Singapore). */
 export default function BuyerDashboard() {
   const { user } = useAuth();
-  const toast = useToast();
   const reqs = useApi("/requirements", { refreshMs: 60000, live: ["requirements", "bonds"] });
-  const contracts = useApi("/contracts", { refreshMs: 60000, live: ["contracts", "bonds"] });
-  const agreements = contracts.data?.items || [];
-  const sg = useApi("/market/outlook?destination=Singapore");
-  const [f, setF] = useState({ grade: "A", tons: 20, priceUsd: 5, floorUsd: 4.5, deliverBy: "2026-05-10", escalation: true, pct: 8 });
-  const price = useApi(`/market/price?grade=${f.grade}`);
-  const set = (k) => (e) => setF({ ...f, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
-
-  const fc = price.data?.season_avg;
-  const pct = fc ? ((f.priceUsd * USD_INR - fc) / fc) * 100 : 0;
-  const verdict = pct >= 3 ? ["Above forecast", "p-good"] : pct >= -7 ? ["Fair", "p-warn"] : ["Below forecast", "p-bad"];
+  const [form, setForm] = useState(initialForm);
+  const [showForm, setShowForm] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [withdrawing, setWithdrawing] = useState(null);
+  const publishing = useRef(false);
+  const formHeading = useRef(null);
   const rows = reqs.data || [];
-
-  const publish = async (e) => {
-    e.preventDefault();
-    try {
-      await api("/requirements", { method: "POST", body: { grade: f.grade, tons: +f.tons, priceUsd: +f.priceUsd, floorUsd: +f.floorUsd, deliverBy: f.deliverBy, escalation: { enabled: f.escalation, pct: +f.pct } } });
-      toast("Requirement published — visible to farmers now");
-      reqs.reload();
-    } catch { toast("Could not publish. Check the form."); }
+  const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
+  const openForm = () => {
+    setShowForm(true);
+    setError("");
+    setSuccess("");
+    requestAnimationFrame(() => { formHeading.current?.scrollIntoView({ behavior: "smooth", block: "start" }); formHeading.current?.focus(); });
   };
-  const withdraw = async (id) => { await api(`/requirements/${id}`, { method: "DELETE" }); reqs.reload(); };
+  const publish = async (event) => {
+    event.preventDefault();
+    if (publishing.current) return;
+    setError(""); setSuccess("");
+    if (form.deliverBy <= dateAfter(0)) { setError("Choose a delivery date after today."); return; }
+    if (form.floorUsd !== "" && +form.floorUsd > +form.priceUsd) { setError("The price floor cannot exceed your offered price."); return; }
+    publishing.current = true; setBusy(true);
+    try {
+      await api("/requirements", { method: "POST", body: {
+        grade: form.grade, tons: +form.tons, priceUsd: +form.priceUsd, deliverBy: form.deliverBy,
+        ...(form.floorUsd !== "" && { floorUsd: +form.floorUsd }),
+        escalation: { enabled: form.escalation, pct: form.escalation ? +form.pct : 0 },
+      } });
+      setSuccess("Requirement posted. Farmers can now see your offer. It is listed below under Your requirements.");
+      setShowForm(false); setForm(initialForm());
+      await reqs.reload();
+    } catch (err) { setError(err.message === "Request failed" ? "Could not post your requirement. Check the fields and try again." : err.message); }
+    finally { publishing.current = false; setBusy(false); }
+  };
+  const withdraw = async (id) => {
+    if (!window.confirm("Withdraw this requirement? Farmers will no longer see this offer.")) return;
+    setWithdrawing(id); setError(""); setSuccess("");
+    try { await api(`/requirements/${id}`, { method: "DELETE" }); setSuccess("Requirement withdrawn."); await reqs.reload(); }
+    catch (err) { setError(err.message || "Could not withdraw this requirement."); }
+    finally { setWithdrawing(null); }
+  };
 
-  return (
-    <div id="buyer">
-      <h2>Buyer dashboard · {user.company || user.name}</h2>
-      <p className="sub">Post what you need. Farmers and FPOs see it instantly and respond.</p>
-      <div className="grid kpis">
-        <div className="card kpi"><div className="l">Open requirements</div><div className="v">{rows.length}</div></div>
-        <div className="card kpi"><div className="l">Tons requested</div><div className="v">{rows.reduce((a, r) => a + r.tons, 0)} t</div></div>
-        <div className="card kpi"><div className="l">Farmers interested</div><div className="v">{rows.reduce((a, r) => a + r.interested, 0)}</div></div>
-        <div className="card kpi"><div className="l">Forecast price, grade {f.grade}</div><div className="v">{fc ? `$${(fc / USD_INR).toFixed(2)}/kg` : "…"}</div><div className="d">{fc && `≈ ${inr(fc)}/kg farm-gate`}</div></div>
-      </div>
-      <div className="grid two">
-        <div className="card">
-          <h3>Post a new requirement</h3>
-          <form onSubmit={publish}>
-            <div className="row">
-              <div><label>Grade</label><select value={f.grade} onChange={set("grade")}>{Object.entries(GRADES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
-              <div><label>Quantity (tons)</label><input type="number" min="1" value={f.tons} onChange={set("tons")} required /></div>
-            </div>
-            <div className="row">
-              <div><label>Offered price (USD/kg)</label><input type="number" step="0.1" min="0.5" value={f.priceUsd} onChange={set("priceUsd")} required /></div>
-              <div><label>Price floor (USD/kg)</label><input type="number" step="0.1" value={f.floorUsd} onChange={set("floorUsd")} /></div>
-            </div>
-            <div className="row">
-              <div><label>Delivery by</label><input type="date" value={f.deliverBy} onChange={set("deliverBy")} required /></div>
-              <div><label>Max escalation (%)</label><input type="number" min="0" max="30" value={f.pct} onChange={set("pct")} /></div>
-            </div>
-            <label><input type="checkbox" style={{ width: "auto", minHeight: 0 }} checked={f.escalation} onChange={set("escalation")} /> Raise offer if supply is tight</label>
-            <div className="insight">{fc ? <>Forecast fair price for grade {f.grade}: <b>${(fc / USD_INR).toFixed(2)}/kg</b>. Your offer is <span className={`pill ${verdict[1]}`}>{verdict[0]}</span> ({pct >= 0 ? "+" : ""}{pct.toFixed(1)}%). {verdict[1] === "p-bad" && "Farmers will likely favour other buyers — consider raising it or adding escalation."}</> : "Loading forecast…"}</div>
-            <p><button className="btn" type="submit">Publish requirement</button></p>
-          </form>
-        </div>
-        <div className="card">
-          <h3>Singapore market snapshot</h3>
-          {sg.data ? (<>
-            <LineChart labels={[...sg.data.history.years, `${sg.data.year} (fc)`]} label="Singapore demand vs supply"
-              series={[{ name: "Demand (t)", color: "var(--brand)", data: [...sg.data.history.demand, sg.data.demand], dots: true }, { name: "FPO supply (t)", color: "var(--brand2)", data: [...sg.data.history_supply, sg.data.supply], dots: true }]} />
-            <div className="insight">{sg.data.year} model forecast: demand <b>{Math.round(sg.data.demand)} t</b> ({Math.round(sg.data.demand_lo)}–{Math.round(sg.data.demand_hi)}) vs FPO supply <b>{Math.round(sg.data.supply)} t</b> → {sg.data.gap > 0 ? <>shortage of <b>{Math.round(sg.data.gap)} t</b>, mostly Grade {sg.data.most_needed_grade}. Competition for export-grade fruit is high, so book early.</> : "supply is sufficient."}</div>
-          </>) : <Loading />}
-          <ErrorBox error={sg.error} />
-        </div>
-      </div>
-      <div className="card" style={{ marginTop: 14 }}>
-        <h3>Your requirements</h3>
-        <div className="tableWrap"><table>
-          <thead><tr><th>Grade</th><th>Tons</th><th>Offer</th><th>Escalation</th><th>Deliver by</th><th>Filled</th><th>Interested</th><th>Price check</th><th /></tr></thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r._id}>
-                <td>{r.grade}</td><td>{r.tons}</td><td>${r.priceUsd.toFixed(2)}</td>
-                <td>{r.escalation?.enabled ? `up to +${r.escalation.pct}%` : "—"}</td><td>{r.deliverBy.slice(0, 10)}</td>
-                <td style={{ minWidth: 110 }}><div className="bar"><i style={{ width: `${(r.filled / r.tons) * 100}%` }} /></div><span className="note">{r.filled}/{r.tons} t</span></td>
-                <td>{r.interested} farmers</td>
-                <td><span className={`pill ${r.verdict.status === "above" ? "p-good" : r.verdict.status === "fair" ? "p-warn" : "p-bad"}`}>{r.verdict.status === "above" ? "Above forecast" : r.verdict.status === "fair" ? "Fair" : "Below forecast"}</span></td>
-                <td><button className="btn alt small" onClick={() => withdraw(r._id)}>Withdraw</button></td>
-              </tr>
-            ))}
-            {!rows.length && <tr><td colSpan="9" className="note">No requirements yet.</td></tr>}
-          </tbody>
-        </table></div>
-      </div>
-      <div className="card">
-        <div className="page-head" style={{ marginBottom: 8 }}>
-          <div><h3 style={{ margin: 0 }}>Digital agreements ({agreements.length})</h3>
-            <p className="sub" style={{ margin: "4px 0 0" }}>Each farmer commitment becomes a formal agreement: you complete the terms, both parties sign with OTP verification, and the signed PDF's SHA-256 is registered on Polygon.</p></div>
-          <Link className="btn" to="/contracts">Open Agreement Registry</Link>
-        </div>
-        <div className="tableWrap"><table>
-          <thead><tr><th>Agreement</th><th>Farmer / FPO</th><th>Quantity</th><th>Value</th><th>Status</th><th /></tr></thead>
-          <tbody>
-            {agreements.map((a) => {
-              const mine = a.signers.find((s) => s.role === "buyer");
-              const action = a.status === "draft" ? "Complete terms" : a.status === "pending_signature" && mine?.status !== "signed" ? "Review & sign" : "Open";
-              const to = a.status === "draft" ? `/contracts/${a.agreementId}/edit` : action === "Review & sign" ? `/contracts/${a.agreementId}/sign` : `/contracts/${a.agreementId}`;
-              return (
-                <tr key={a.agreementId}>
-                  <td><b>{a.agreementId}</b><div className="note">v{a.version}</div></td>
-                  <td>{a.parties.seller.farmerName}<div className="note">{a.parties.seller.fpo}</div></td>
-                  <td>{a.terms.quantityTons} t · Grade {a.terms.grade}</td>
-                  <td>USD {Number(a.terms.totalValueUsd).toLocaleString()}</td>
-                  <td><span className={`pill ${a.chain?.status === "registered" ? "p-good" : a.status === "pending_signature" ? "p-warn" : a.status === "disputed" ? "p-bad" : ""}`}>{a.status.replace("_", " ")}</span></td>
-                  <td><Link className="btn alt small" to={to}>{action}</Link></td>
-                </tr>
-              );
-            })}
-            {agreements.length === 0 && <tr><td colSpan="6" className="note">No agreements yet. When a farmer commits to a requirement, a draft agreement appears here.</td></tr>}
-          </tbody>
-        </table></div>
-      </div>
+  return <div id="buyer" className="buyer-workspace">
+    <div className="page-head buyer-heading">
+      <div><p className="buyer-eyebrow">{user.company || user.name || "Buyer portal"}</p><h2>Your requirements</h2>
+        <p className="sub">Tell farmers what mangoes you need, how much you will pay, and when to deliver.</p></div>
+      <button type="button" className="btn" onClick={openForm} disabled={busy} aria-expanded={showForm} aria-controls="buyer-requirement-form">+ Post a requirement</button>
     </div>
-  );
+    <ol className="buyer-steps" aria-label="Buying process"><li><b>1. Post a requirement</b><span>Choose grade, quantity, price and date.</span></li><li><b>2. Receive commitments</b><span>Farmers respond to your offer.</span></li><li><b>3. Review an agreement</b><span>Confirm terms with your farmer.</span></li></ol>
+    {success && <div className="buyer-success" role="status">{success}</div>}
+    {error && <div className="buyer-error" role="alert">{error}</div>}
+    {showForm && <section className="card buyer-form" id="buyer-requirement-form" aria-labelledby="requirement-title">
+      <h3 id="requirement-title" ref={formHeading} tabIndex={-1}>Post a requirement</h3>
+      <p className="sub">Crop: Alphonso mangoes. Complete these four details to publish your offer.</p>
+      <form onSubmit={publish}>
+        <fieldset disabled={busy} className="buyer-fields">
+          <div className="row">
+            <div><label htmlFor="req-grade">Mango grade</label><select id="req-grade" value={form.grade} onChange={set("grade")}>{Object.entries(GRADES).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></div>
+            <div><label htmlFor="req-tons">Quantity (metric tons)</label><input id="req-tons" type="number" min="1" step="0.1" placeholder="e.g. 10" value={form.tons} onChange={set("tons")} required /><span className="note">1 metric ton = 1,000 kg. Minimum 1 ton.</span></div>
+          </div>
+          <div className="row">
+            <div><label htmlFor="req-price">Your offered price (USD per kg)</label><input id="req-price" type="number" min="0.1" step="0.01" placeholder="e.g. 5.00" value={form.priceUsd} onChange={set("priceUsd")} required /></div>
+            <div><label htmlFor="req-date">Delivery date</label><input id="req-date" type="date" min={dateAfter(1)} value={form.deliverBy} onChange={set("deliverBy")} required /></div>
+          </div>
+          <details className="buyer-optional"><summary>Optional pricing terms</summary>
+            <p className="note">Leave these unchanged for a straightforward fixed-price offer.</p>
+            <label htmlFor="req-floor">Minimum price floor (USD per kg)</label><input id="req-floor" type="number" min="0" max={form.priceUsd || undefined} step="0.01" value={form.floorUsd} onChange={set("floorUsd")} />
+            <label className="buyer-check"><input type="checkbox" checked={form.escalation} onChange={set("escalation")} /> Allow a higher offer if supply is tight</label>
+            {form.escalation && <><label htmlFor="req-escalation">Maximum increase (%)</label><input id="req-escalation" type="number" min="0" max="30" step="0.1" value={form.pct} onChange={set("pct")} required /></>}
+          </details>
+          {+form.tons > 0 && +form.priceUsd > 0 && <p className="insight">Estimated produce value: <b>USD {(+form.tons * 1000 * +form.priceUsd).toLocaleString(undefined, { maximumFractionDigits: 2 })}</b>. Excludes transport and other charges.</p>}
+          <div className="buyer-actions"><button className="btn" type="submit">{busy ? "Posting?" : "Post requirement"}</button><button className="btn alt" type="button" onClick={() => { setShowForm(false); setError(""); }}>Cancel</button></div>
+        </fieldset>
+      </form>
+    </section>}
+    <section className="card" aria-labelledby="requirements-list-title">
+      <div className="page-head"><h3 id="requirements-list-title">Your requirements ({rows.length})</h3><button type="button" className="btn alt small" onClick={reqs.reload}>Refresh</button></div>
+      {reqs.loading && <Loading />}
+      <ErrorBox error={reqs.error} />
+      {!reqs.loading && !reqs.error && rows.length === 0 && <div className="buyer-empty"><h3>Start with your first requirement</h3><p>Post an offer so farmers know what you want to buy.</p><button className="btn" type="button" onClick={openForm}>Post a requirement</button></div>}
+      {rows.length > 0 && <div className="tableWrap"><table><thead><tr><th>Grade</th><th>Quantity</th><th>Offer (USD/kg)</th><th>Delivery date</th><th>Claimed / requested</th><th>Interested</th><th>Actions</th></tr></thead><tbody>
+        {rows.map((r) => <tr key={r._id}><td>Grade {r.grade}</td><td>{r.tons} t</td><td>${Number(r.priceUsd).toFixed(2)}</td><td>{r.deliverBy.slice(0, 10)}</td><td>{+((r.filled || 0) + (r.reserved || 0)).toFixed(1)} / {r.tons} t</td><td>{r.interested || 0} farmers</td><td><button className="btn alt small" type="button" disabled={withdrawing !== null} onClick={() => withdraw(r._id)}>{withdrawing === r._id ? "Withdrawing?" : "Withdraw"}</button></td></tr>)}
+      </tbody></table></div>}
+    </section>
+    <p className="note">Already received a farmer commitment? <Link to="/contracts">Review your agreements</Link>.</p>
+  </div>;
 }

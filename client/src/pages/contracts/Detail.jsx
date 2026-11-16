@@ -177,10 +177,15 @@ export default function Detail() {
           <p className="sub">{a.parties.buyer.company} ↔ {a.parties.seller.farmerName} ({a.parties.seller.fpo}) · Alphonso Grade {a.terms.grade} · {a.terms.quantityTons} t · <b>{usd(a.terms.totalValueUsd)}</b></p>
         </div>
         <div className="page-actions">
+          {a.status === "draft" && a.bond && ["buyer", "farmer"].includes(a.myRole) && <button className="btn alt" onClick={async () => {
+            if (!window.confirm("Release this claim? Its quantity will become available to other farmers.")) return;
+            try { await api(`/bonds/${a.bond}`, { method: "DELETE" }); toast("Claim released. The quantity is available again."); nav(a.myRole === "farmer" ? "/farmer/offers" : "/buyer"); }
+            catch (e) { toast(e.message || "Could not release this claim"); }
+          }}>Release claim</button>}
           {a.status === "draft" && <><button className="btn alt" onClick={() => nav(`/contracts/${id}/edit`)}><Icon name="pen" size={16} />Edit terms</button>
             <button className="btn" onClick={() => act("/send", undefined, "Sent to both parties for signature")}><Icon name="arrowRight" size={16} />Send for signature</button></>}
           {a.status === "pending_signature" && me?.status !== "signed" && <><button className="btn cyan" onClick={() => nav(`/contracts/${id}/sign`)}><Icon name="pen" size={16} />Review &amp; sign</button>
-            <button className="btn danger" onClick={() => act("/decline", { reason: "Changes requested" }, "Declined — agreement returned to draft")}>Decline</button></>}
+            <button className="btn danger" onClick={() => act("/decline", { reason: "Cannot proceed" }, "Declined — claim released")}>Decline</button></>}
           {a.status === "pending_signature" && <button className="btn alt" onClick={() => dl("draft")}><Icon name="file" size={16} />Draft PDF</button>}
           {signed && <button className="btn alt" onClick={() => dl("signed")}><Icon name="file" size={16} />Download signed PDF</button>}
           {signed && <button className="btn alt" onClick={() => nav(`/contracts/verify?id=${id}`)}><Icon name="shield" size={16} />Verify</button>}

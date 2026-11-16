@@ -34,37 +34,25 @@ function cards(d) {
   ];
 }
 
-const SAMPLE = {
-  demand: { ok: true, openTons: 52, buyers: 3, newThisWeek: 4, byGrade: { A: { avgOfferInr: 458 } } },
-  price: { ok: true, fairOffer: 440, bestWeek: "Apr W3", bestPrice: 470, mandiPrice: 365, source: "model_sample", mape: 8 },
-  weather: { ok: true, source: "demo", districts: [{ district: "Ratnagiri", temp_c: 29, rain_mm_48h: 4, alert: false }] },
-  stages: { ok: true, pending: 3, approved: 12 },
-  chain: { ok: true, registered: 8, total: 10, block: 24, network: "Simulated registration" },
-  escrow: { ok: true, released: 12500, held: 24000, accounts: 4 },
-  messages: { ok: true, last24h: 18, delivered: 0, failed: 0, simulated: 18 },
-  certs: { ok: true, issued: 12, latestId: "AGL-DEMO-CERT-001" },
-};
-
-export default function LiveBoard({ L, demo = false }) {
-  const [d, setD] = useState(demo ? SAMPLE : null);
+export default function LiveBoard({ L }) {
+  const [d, setD] = useState(null);
   const [err, setErr] = useState(false);
   useEffect(() => {
-    if (demo) { setD(SAMPLE); return; }
     let alive = true;
     const load = () => fetch("/api/public/live").then((r) => (r.ok ? r.json() : Promise.reject())).then((j) => { if (alive) { setD(j); setErr(false); } }).catch(() => alive && setErr(true));
     load();
     const id = setInterval(load, 30000);
     return () => { alive = false; clearInterval(id); };
-  }, [demo]);
+  }, []);
 
   const titles = L.realtime.features.map((f) => f.name);
-  const list = d ? cards(d).map((card) => demo ? { ...card, live: false, src: "Illustrative sample data · demo only", to: card.to.startsWith("/verify") ? "/login/operations" : card.to } : card) : [];
+  const list = d ? cards(d) : [];
   const up = list.filter((c) => c.ok).length;
   return (
     <div className="lb">
       <div className="lb-bar">
         <span className={`lb-dot ${d && !err ? "on" : ""}`} />
-        <b>{demo ? "Explore a sample platform snapshot" : d && !err ? `${up}/8 services online` : err ? "Platform offline" : "Connecting…"}</b>
+        <b>{d && !err ? `${up}/8 services online` : err ? "Platform offline" : "Connecting…"}</b>
         {d && <span className="lb-time">Updated {new Date(d.at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })} · refreshes every 30 s</span>}
       </div>
       <div className="lb-grid">

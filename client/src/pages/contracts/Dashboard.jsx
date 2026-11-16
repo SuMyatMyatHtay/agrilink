@@ -56,7 +56,7 @@ export default function Dashboard() {
   return (
     <>
       <div className="page-head">
-        <div><h2>Agreement Registry</h2><p className="sub">Digitally signed procurement agreements with blockchain-anchored integrity.</p></div>
+        <div><h2>Agreements</h2><p className="sub">Review farmer commitments, confirm the terms, and sign your agreements.</p></div>
         <div className="page-actions">
           <button className="btn alt" onClick={() => nav("/contracts/verify")}><Icon name="shield" size={16} />Verify document</button>
           <button className="btn" onClick={() => setShowNew(true)}><Icon name="file" size={16} />New agreement</button>
@@ -69,7 +69,7 @@ export default function Dashboard() {
         ))}
       </div>
 
-      <div className="grid" style={{ gridTemplateColumns: "minmax(0, 2fr) minmax(280px, 1fr)", alignItems: "start" }}>
+      <div className="agreement-grid">
         <div className="card">
           <h3>Agreements</h3>
           <div className="chips">{FILTERS.map(([k, l]) => <button key={k} className={`chip ${filter === k ? "on" : ""}`} onClick={() => setFilter(k)}>{l}</button>)}</div>

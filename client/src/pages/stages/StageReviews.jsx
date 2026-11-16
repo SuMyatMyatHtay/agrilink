@@ -9,15 +9,13 @@ import { useI18n } from "../../i18n/index.jsx";
 import StageReport, { ScoreRing, StagePill } from "./StageReport.jsx";
 import "./stages.css";
 import "../certificates/certificates.css";
-import { DEMO_MODE } from "../../demo.js";
 
 /** Consultant (farmer doctor) queue; FPO and AgriLink operations see it read-only. */
 const TABS = [["pending_review", "Pending review"], ["requires_correction", "Requires correction"], ["approved", "Approved"], ["rejected", "Rejected"], ["", "All"]];
 
 export function StageReviewQueue() {
   const { t } = useI18n();
-  const { user, setUser } = useAuth();
-  const toast = useToast();
+  const { user } = useAuth();
   const nav = useNavigate();
   const [params, setParams] = useSearchParams();
   const status = params.get("status") ?? "pending_review";
@@ -30,13 +28,6 @@ export function StageReviewQueue() {
         {role === "admin" && <Link className="btn alt small" to="/ops/stage-settings"><Icon name="dashboard" size={15} />Stage settings</Link>}
       </div>
       <div className="dc-tabs">{TABS.map(([k, l]) => <button key={l} className={`dc-tab ${status === k ? "on" : ""}`} onClick={() => setParams(k ? { status: k } : { status: "" })}>{l}</button>)}</div>
-      {DEMO_MODE && role === "admin" && data?.some((a) => a.status === "pending_review") && <div className="card"><p>Try the consultant step: review the sample record and approve it, request a correction, or reject it.</p><button className="btn" onClick={async () => {
-        const a = data.find((item) => item.status === "pending_review");
-        try {
-          setUser(await api("/ops/me", { method: "PUT", body: { m2Role: "doctor", m2Actor: `DOC-${a.fpoId}` } }));
-          nav(`/ops/stage-reviews/${a.assessmentId}`);
-        } catch (e) { toast(e.message); }
-      }}>Review as demo consultant</button></div>}
       {loading && !data && <Loading />}
       {error && <ErrorBox error={error} />}
       {data && !data.length && <div className="card cert-empty"><Icon name="checkCircle" size={26} /><p>Nothing here.</p></div>}

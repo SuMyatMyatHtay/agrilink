@@ -4,7 +4,6 @@ import { useApi } from "../../hooks/useApi.js";
 import Icon from "../../components/Icon.jsx";
 import { ErrorBox, Loading } from "../../components/ui.jsx";
 import { StatusBadge, usd, day } from "../../components/trust/ui.jsx";
-import { DEMO_MODE } from "../../demo.js";
 
 /** Farmer view of their digital agreements (full workflow lives in the Agreement Registry). */
 export default function Agreements() {
@@ -19,7 +18,6 @@ export default function Agreements() {
       </div>
       {r.loading && !r.data && <Loading />}
       <ErrorBox error={r.error} />
-      {DEMO_MODE && <div className="card"><b>Continue the demo agreement</b><p>The buyer reviews and sends the draft first. Use <Link to="/login/buyer">Try Buyer</Link>, choose the buyer named on your agreement, and open the draft in Agreement Registry. After sending and signing, switch back to Farmer to add the other signature.</p><p>Demo signing code: <b>1234</b>. Both signatures unlock registration and farm operations.</p></div>}
       {r.data && items.length === 0 && <div className="card note">{t("ag_none")}</div>}
       <div className="offers-grid">
         {items.map((a) => {

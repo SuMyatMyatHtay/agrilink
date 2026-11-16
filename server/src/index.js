@@ -13,14 +13,18 @@ import { createStore } from "./modules/contracts/storage.js";
 import { reanchorAll } from "./modules/contracts/service.js";
 import { reanchorCertificates } from "./modules/certificates/service.js";
 import { seedIfEmpty } from "./seed.js";
+import { connectDatabase } from "./database.js";
 
-await mongoose.connect(env.mongo);
+await connectDatabase(env.mongo);
+await (await import("./modules/bonds/allocation.js")).migrateReservations();
 console.log("MongoDB connected");
 if (env.seedOnStart && (await seedIfEmpty())) console.log("Seeded demo buyer requirements");
 
 // Blockchain + document store for digital agreements
 const chain = createChain();
-try {
+if (!chain.enabled) {
+  console.log("Blockchain disabled (CHAIN_ENABLED is not true). On-chain registration is unavailable.");
+} else try {
   const d = await chain.ensureDeployed();
   if (d.redeployed) {
     console.log(`Local chain was reset: AgreementRegistry redeployed at ${d.address}; re-anchoring recorded agreements…`);

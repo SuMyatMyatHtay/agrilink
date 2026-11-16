@@ -5,7 +5,6 @@ import Icon from "../../components/Icon.jsx";
 import WhatsAppButton from "../../components/WhatsAppButton.jsx";
 import { useI18n } from "../../i18n/index.jsx";
 import "./assistant.css";
-import { DEMO_MODE, demoReply } from "../../demo.js";
 
 /** "Mitra" — farmer chat assistant. Type or speak; replies can be read aloud. */
 const SPEECH = { en: "en-IN", hi: "hi-IN", mr: "mr-IN", gu: "gu-IN", ta: "ta-IN", te: "te-IN", kn: "kn-IN" };
@@ -52,11 +51,6 @@ export function Chat({ compact = false, onNavigate }) {
     if (!content || busy) return;
     const next = [...msgs, { role: "user", content }];
     setMsgs(next); setText(""); setBusy(true); setLinks([]);
-    if (DEMO_MODE) {
-      setMsgs([...next, { role: "assistant", content: demoReply(content), lang: "en" }]);
-      setMode("demo"); setBusy(false);
-      return;
-    }
     try {
       const res = await fetch("/api/assistant/stream", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${getToken()}` },
         body: JSON.stringify({ lang, messages: next.filter((m) => !m.error).map(({ role, content: c }) => ({ role, content: c })) }) });

@@ -14,9 +14,15 @@ const BUYERS = [
 /** Idempotent: only seeds when there are no requirements yet. */
 export async function seedIfEmpty() {
   if (await Requirement.countDocuments()) return false;
+  // Clearly fictional sample farmer; never overwrite an existing profile.
+  await User.updateOne({ mobile: "9888888801" }, { $setOnInsert: {
+    mobile: "9888888801", role: "farmer", name: "Demo Mango Farmer", lang: "en",
+    farm: { village: "Devgad", district: "Sindhudurg", acres: 5, trees: 300, age: 15, irrigation: "drip", variety: "Alphonso" },
+  } }, { upsert: true });
   for (const { mobile, company, ...r } of BUYERS) {
     const buyer = await User.findOneAndUpdate({ mobile }, { mobile, role: "buyer", company, name: company }, { upsert: true, new: true });
-    await Requirement.create({ ...r, buyer: buyer._id, buyerName: company });
+    const deliverBy = new Date(Date.now() + (30 + BUYERS.findIndex((b) => b.mobile === mobile) * 7) * 86400000);
+    await Requirement.create({ ...r, deliverBy, filled: 0, buyer: buyer._id, buyerName: company });
   }
   return true;
 }

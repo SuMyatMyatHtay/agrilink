@@ -14,7 +14,8 @@ const bondSchema = new mongoose.Schema(
     priceUsd: Number,
     deliverBy: Date,
     escalation: { enabled: Boolean, pct: Number },
-    status: { type: String, enum: ["draft", "buyer_signed", "farmer_signed", "active"], default: "draft" },
+    status: { type: String, enum: ["draft", "buyer_signed", "farmer_signed", "active", "cancelled"], default: "draft" },
+    reservationHeld: { type: Boolean, default: false },
     sigs: { buyer: sig, farmer: sig },
   },
   { timestamps: true }

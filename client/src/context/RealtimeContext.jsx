@@ -44,6 +44,7 @@ export function RealtimeProvider({ children }) {
   const [items, setItems] = useState([]);
   const [unread, setUnread] = useState(0);
   const [connected, setConnected] = useState(false);
+  const [unseenRequestIds, setUnseenRequestIds] = useState([]);
   const listeners = useRef(new Set());
   const tRef = useRef(t);
   tRef.current = t;
@@ -53,16 +54,19 @@ export function RealtimeProvider({ children }) {
       const r = await api("/notifications");
       setItems(r.items);
       setUnread(r.unread);
+      setUnseenRequestIds(r.unseenRequestIds || []);
     } catch { /* offline */ }
   }, []);
 
   useEffect(() => {
-    if (!user) { setItems([]); setUnread(0); return undefined; }
+    if (!user) { setItems([]); setUnread(0); setUnseenRequestIds([]); return undefined; }
     load();
-    const socket = io({ auth: { token: getToken() }, transports: ["websocket", "polling"] });
+    const poll = setInterval(load, 15000);
+    const socket = io(import.meta.env.VITE_REALTIME_URL || undefined, { auth: { token: getToken() }, transports: ["websocket", "polling"] });
     socket.on("connect", () => { setConnected(true); load(); }); // catch up on anything missed while offline
     socket.on("disconnect", () => setConnected(false));
     socket.on("notification", (n) => {
+      if (n.type === "req_new" && n.data?.reqId) setUnseenRequestIds((ids) => [...new Set([...ids, n.data.reqId])]);
       setItems((xs) => [n, ...xs].slice(0, 30));
       setUnread((u) => u + 1);
       const text = notifText(n, tRef.current);
@@ -72,7 +76,7 @@ export function RealtimeProvider({ children }) {
       } catch { /* not supported */ }
     });
     socket.on("data:changed", ({ resource }) => listeners.current.forEach((fn) => fn(resource)));
-    return () => socket.disconnect();
+    return () => { clearInterval(poll); socket.disconnect(); };
   }, [user, load, toast]);
 
   /** Subscribe to "data changed" pushes; returns an unsubscribe function. */
@@ -84,5 +88,13 @@ export function RealtimeProvider({ children }) {
     try { await api("/notifications/read-all", { method: "POST" }); } catch { /* retry next time */ }
   }, []);
 
-  return <RealtimeCtx.Provider value={{ items, unread, connected, onChange, markAllRead }}>{children}</RealtimeCtx.Provider>;
+  const markRequestsViewed = useCallback(async (requestIds) => {
+    for (let i = 0; i < requestIds.length; i += 200) {
+      await api("/notifications/requests/viewed", { method: "POST", body: { requestIds: requestIds.slice(i, i + 200) } });
+    }
+    setUnseenRequestIds((ids) => ids.filter((id) => !requestIds.includes(id)));
+    await load();
+  }, [load]);
+
+  return <RealtimeCtx.Provider value={{ items, unread, connected, onChange, markAllRead, unseenRequestIds, markRequestsViewed }}>{children}</RealtimeCtx.Provider>;
 }

@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import mongoose from "mongoose";
 import { modules } from "./modules/index.js";
 import { errorHandler } from "./lib/http.js";
 import { nullNotifier } from "./modules/notifications/notifier.js";
@@ -24,6 +25,15 @@ export function createApp(injected) {
   app.use(express.json({ limit: "1mb", verify: (req, _res, buf) => { req.rawBody = buf; } }));
   app.use("/api/webhooks", express.urlencoded({ extended: false }));   // Twilio status callbacks
   app.get("/api/health", (_req, res) => res.json({ status: "ok", service: "api" }));
+  app.get("/api/health/db", async (_req, res) => {
+    try {
+      if (mongoose.connection.readyState !== 1) throw new Error("disconnected");
+      await mongoose.connection.db.admin().ping();
+      res.json({ status: "ok", database: "connected" });
+    } catch {
+      res.status(503).json({ status: "unavailable", database: "disconnected" });
+    }
+  });
   for (const make of modules) {
     const { path, router } = make(deps);
     app.use(`/api${path}`, router);

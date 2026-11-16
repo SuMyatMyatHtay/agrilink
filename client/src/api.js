@@ -33,6 +33,9 @@ export async function api(path, { method = "GET", body } = {}) {
     throw new ApiError(0, "network", "Network error");
   }
   const data = await res.json().catch(() => ({}));
+  if (!res.headers.get("content-type")?.includes("application/json")) {
+    throw new ApiError(res.status, "api_misconfigured", "API returned a non-JSON response. Check the backend URL and deployment routing.");
+  }
   if (!res.ok) throw new ApiError(res.status, data.error || "error", data.message || "Request failed");
   return data;
 }

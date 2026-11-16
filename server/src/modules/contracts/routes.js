@@ -1,3 +1,4 @@
+import { activateClaim, releaseClaim, resizeClaim } from "../bonds/allocation.js";
 import { Router } from "express";
 import { z } from "zod";
 import { HttpError, wrap } from "../../lib/http.js";
@@ -23,16 +24,9 @@ export default function contractsModule({ notifier, contractDeps }) {
   const other = (a, role) => (role === "buyer" ? a.farmer : a.buyer);
   const notify = (users, type, a, extra = {}) => notifier.toUsers(users, type, { agreementId: a.agreementId, version: a.version, ...extra });
 
-  /** When both signed and on-chain: the commitment becomes binding (bond active, requirement filled) — first version only. */
+  /** Optional on-chain follow-up; activation already occurs once both parties sign — first version only. */
   const onRegistered = async (a) => {
-    if (a.version === 1 && a.bond) {
-      const bond = await Bond.findById(a.bond);
-      if (bond && bond.status !== "active") {
-        bond.status = "active";
-        await bond.save();
-        await Requirement.updateOne({ _id: bond.requirement }, { $inc: { filled: bond.tons } });
-      }
-    }
+    if (a.version === 1 && a.bond) await activateClaim(a.bond);
     await notify([a.buyer, a.farmer], "contract_registered", a, { txHash: a.chain.txHash, block: a.chain.blockNumber });
     if (a.version === 1) await handoff(a);
     notifier.changed("bonds", "requirements", "contracts");
@@ -102,7 +96,10 @@ export default function contractsModule({ notifier, contractDeps }) {
     res.json({ ...svc.publicView(a), myRole: req.auth.role, ...(out && typeof out === "object" ? { result: out } : {}) });
   });
 
-  r.put("/:id/terms", mutate((a, req) => svc.updateTerms(a, req.auth, req.body || {})));
+  r.put("/:id/terms", mutate(async (a, req) => {
+    svc.updateTerms(a, req.auth, req.body || {});
+    if (a.bond && req.body?.quantityTons !== undefined) await resizeClaim(a.bond, a.terms.quantityTons);
+  }));
 
   r.post("/:id/send", mutate(async (a, req) => {
     const put = await svc.sendForSignature(a, req.auth, deps().store);
@@ -116,11 +113,13 @@ export default function contractsModule({ notifier, contractDeps }) {
     const body = z.object({
       type: z.enum(["typed", "drawn"]), typedName: z.string().optional(), image: z.string().optional(), consent: z.literal(true),
     }).parse(req.body);
-    await svc.sign(a, req.auth, body, meta(req), { ...deps(), onRegistered });
+    await svc.sign(a, req.auth, body, meta(req), { ...deps(), onRegistered, onSigned: async (signed) => { if (signed.version === 1 && signed.bond) await activateClaim(signed.bond); notifier.changed("bonds", "requirements", "contracts"); } });
     if (a.status === "pending_signature") await notify([other(a, req.auth.role)], "contract_signed_by", a, { by: req.auth.role });
   }));
   r.post("/:id/decline", mutate(async (a, req) => {
     svc.decline(a, req.auth, req.body?.reason);
+    if (a.bond && a.version === 1) { await releaseClaim(a.bond); a.status = "cancelled"; }
+    notifier.changed("bonds", "requirements");
     await notify([other(a, req.auth.role)], "contract_declined", a, { by: req.auth.role });
   }));
   r.post("/:id/retry-chain", mutate(async (a) => {

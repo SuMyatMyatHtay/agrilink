@@ -27,8 +27,8 @@ export function AuthProvider({ children }) {
     })();
   }, []);
 
-  const login = useCallback(async ({ mobile, otp, role, company }) => {
-    const r = await api("/auth/verify", { method: "POST", body: { mobile, otp, role, ...(company && { company }) } });
+  const login = useCallback(async ({ mobile, otp, role, company, demo = false }) => {
+    const r = await api(demo ? "/auth/demo" : "/auth/verify", { method: "POST", body: { mobile, otp, role, ...(company && { company }) } });
     setToken(r.token);
     if (r.user.role === "buyer") { try { localStorage.setItem("agrilink_buyer", JSON.stringify({ company: r.user.company, name: r.user.name })); } catch { /* ignore */ } }
     setUser(r.user);

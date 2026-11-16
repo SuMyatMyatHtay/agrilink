@@ -7,7 +7,6 @@ import { useApi } from "../../hooks/useApi.js";
 import { useI18n } from "../../i18n/index.jsx";
 import StageReport, { StagePill } from "./StageReport.jsx";
 import "./stages.css";
-import { DEMO_MODE } from "../../demo.js";
 import "../certificates/certificates.css";
 
 /** Farmer: crop records → lifecycle stages → submit photos + record → report → consultant decision → certificate. */
@@ -87,17 +86,6 @@ function SubmitStage({ crop, stage, onDone }) {
   const [files, setFiles] = useState([]);
   const [batchId, setBatchId] = useState("");
   const [busy, setBusy] = useState(false);
-  const fillDemo = async () => {
-    const examples = { supplier: "Demo certified nursery", success_pct: 95, spacing_m: 10, disease_signs: false, weight_g: 260, defect_pct: 2 };
-    setEntries(Object.fromEntries(stage.fields.map((f) => [f.key, examples[f.key] ?? (f.type === "boolean" ? true : f.type === "select" ? f.options[0] : f.type === "date" ? "2027-04-01" : f.type === "number" ? Math.max(f.min ?? 0, Math.min(f.max ?? 100, 90)) : "Demo orchard record")])));
-    if (batches.data?.[0]) setBatchId(batches.data[0].batchId);
-    try {
-      const response = await fetch(stage.aiMode === "fruit" ? "/img/demo-mango.jpg" : "/img/demo-foliage.jpg");
-      if (!response.ok) throw new Error("Sample photo unavailable");
-      const dataBase64 = await toJpeg(await response.blob());
-      setFiles(Array.from({ length: Math.max(stage.minPhotos, 1) }, (_, i) => ({ name: `Demo sample ${i + 1}.jpg`, dataBase64 })));
-    } catch (err) { toast(err.message); }
-  };
   const pick = async (list) => {
     const chosen = [...list].slice(0, 5);
     setFiles(await Promise.all(chosen.map(async (f) => ({ name: f.name, dataBase64: await toJpeg(f) }))));
@@ -113,7 +101,6 @@ function SubmitStage({ crop, stage, onDone }) {
     <form className="card stg-form" onSubmit={send}>
       <h3><Icon name="pen" />{stage.name}</h3>
       <p className="insight" style={{ marginTop: 0 }}>{stage.guidance}</p>
-      {DEMO_MODE && <div><button className="btn alt" type="button" onClick={fillDemo}>Fill demo record and photos</button><p className="note">Generated sample images for exploring the review flow.</p></div>}
       <div className="stg-fields">{stage.fields.map((f) => <Field key={f.key} f={f} value={entries[f.key]} onChange={(v) => setEntries({ ...entries, [f.key]: v })} />)}</div>
       {(stage.requiresBatch || (batches.data || []).length > 0) && (
         <label className="stg-field"><span>{t("stg_batch")}{stage.requiresBatch && " *"}</span>

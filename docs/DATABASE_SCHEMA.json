@@ -1,0 +1,1412 @@
+[
+  {
+    "collection": "users",
+    "model": "User",
+    "fields": {
+      "mobile": {
+        "type": "String",
+        "required": true
+      },
+      "allocationVersion": {
+        "type": "Number",
+        "required": false
+      },
+      "role": {
+        "type": "String",
+        "required": true,
+        "enum": [
+          "farmer",
+          "buyer",
+          "operations"
+        ]
+      },
+      "m2Role": {
+        "type": "String",
+        "required": false,
+        "enum": [
+          "admin",
+          "fpo",
+          "doctor"
+        ]
+      },
+      "m2Actor": {
+        "type": "String",
+        "required": false
+      },
+      "name": {
+        "type": "String",
+        "required": false
+      },
+      "company": {
+        "type": "String",
+        "required": false
+      },
+      "farm": {
+        "type": "Embedded",
+        "required": false
+      },
+      "lang": {
+        "type": "String",
+        "required": false,
+        "enum": [
+          "en",
+          "hi",
+          "mr",
+          "gu",
+          "ta",
+          "te",
+          "kn"
+        ]
+      },
+      "notify.whatsapp": {
+        "type": "Boolean",
+        "required": false
+      },
+      "notify.sms": {
+        "type": "Boolean",
+        "required": false
+      },
+      "notify.voice": {
+        "type": "Boolean",
+        "required": false
+      },
+      "waLastInboundAt": {
+        "type": "Date",
+        "required": false
+      },
+      "costs": {
+        "type": "Array",
+        "required": false
+      },
+      "_id": {
+        "type": "ObjectId",
+        "required": false
+      },
+      "createdAt": {
+        "type": "Date",
+        "required": false
+      },
+      "updatedAt": {
+        "type": "Date",
+        "required": false
+      },
+      "__v": {
+        "type": "Number",
+        "required": false
+      }
+    },
+    "indexes": [
+      [
+        {
+          "mobile": 1
+        },
+        {
+          "unique": true,
+          "background": true
+        }
+      ]
+    ]
+  },
+  {
+    "collection": "requirements",
+    "model": "Requirement",
+    "fields": {
+      "buyer": {
+        "type": "ObjectId",
+        "required": true,
+        "ref": "User"
+      },
+      "buyerName": {
+        "type": "String",
+        "required": true
+      },
+      "variety": {
+        "type": "String",
+        "required": false
+      },
+      "grade": {
+        "type": "String",
+        "required": true,
+        "enum": [
+          "A",
+          "B",
+          "C"
+        ]
+      },
+      "tons": {
+        "type": "Number",
+        "required": true
+      },
+      "priceUsd": {
+        "type": "Number",
+        "required": true
+      },
+      "floorUsd": {
+        "type": "Number",
+        "required": false
+      },
+      "deliverBy": {
+        "type": "Date",
+        "required": true
+      },
+      "escalation.enabled": {
+        "type": "Boolean",
+        "required": false
+      },
+      "escalation.pct": {
+        "type": "Number",
+        "required": false
+      },
+      "filled": {
+        "type": "Number",
+        "required": false
+      },
+      "reserved": {
+        "type": "Number",
+        "required": false
+      },
+      "interested": {
+        "type": "Number",
+        "required": false
+      },
+      "_id": {
+        "type": "ObjectId",
+        "required": false
+      },
+      "createdAt": {
+        "type": "Date",
+        "required": false
+      },
+      "updatedAt": {
+        "type": "Date",
+        "required": false
+      },
+      "__v": {
+        "type": "Number",
+        "required": false
+      }
+    },
+    "indexes": []
+  },
+  {
+    "collection": "bonds",
+    "model": "Bond",
+    "fields": {
+      "requirement": {
+        "type": "ObjectId",
+        "required": true,
+        "ref": "Requirement"
+      },
+      "buyer": {
+        "type": "ObjectId",
+        "required": true,
+        "ref": "User"
+      },
+      "farmer": {
+        "type": "ObjectId",
+        "required": true,
+        "ref": "User"
+      },
+      "buyerName": {
+        "type": "String",
+        "required": false
+      },
+      "farmerName": {
+        "type": "String",
+        "required": false
+      },
+      "grade": {
+        "type": "String",
+        "required": false,
+        "enum": [
+          "A",
+          "B",
+          "C"
+        ]
+      },
+      "tons": {
+        "type": "Number",
+        "required": false
+      },
+      "priceUsd": {
+        "type": "Number",
+        "required": false
+      },
+      "deliverBy": {
+        "type": "Date",
+        "required": false
+      },
+      "escalation.enabled": {
+        "type": "Boolean",
+        "required": false
+      },
+      "escalation.pct": {
+        "type": "Number",
+        "required": false
+      },
+      "status": {
+        "type": "String",
+        "required": false,
+        "enum": [
+          "draft",
+          "buyer_signed",
+          "farmer_signed",
+          "active",
+          "cancelled"
+        ]
+      },
+      "reservationHeld": {
+        "type": "Boolean",
+        "required": false
+      },
+      "sigs.buyer": {
+        "type": "Embedded",
+        "required": false
+      },
+      "sigs.farmer": {
+        "type": "Embedded",
+        "required": false
+      },
+      "_id": {
+        "type": "ObjectId",
+        "required": false
+      },
+      "createdAt": {
+        "type": "Date",
+        "required": false
+      },
+      "updatedAt": {
+        "type": "Date",
+        "required": false
+      },
+      "__v": {
+        "type": "Number",
+        "required": false
+      }
+    },
+    "indexes": []
+  },
+  {
+    "collection": "agreements",
+    "model": "Agreement",
+    "fields": {
+      "agreementId": {
+        "type": "String",
+        "required": true
+      },
+      "ref": {
+        "type": "String",
+        "required": false
+      },
+      "bond": {
+        "type": "ObjectId",
+        "required": false,
+        "ref": "Bond"
+      },
+      "requirement": {
+        "type": "ObjectId",
+        "required": false,
+        "ref": "Requirement"
+      },
+      "buyer": {
+        "type": "ObjectId",
+        "required": true,
+        "ref": "User"
+      },
+      "farmer": {
+        "type": "ObjectId",
+        "required": true,
+        "ref": "User"
+      },
+      "version": {
+        "type": "Number",
+        "required": false
+      },
+      "status": {
+        "type": "String",
+        "required": false,
+        "enum": [
+          "cancelled",
+          "draft",
+          "pending_signature",
+          "signed",
+          "registered",
+          "in_progress",
+          "completed",
+          "disputed"
+        ]
+      },
+      "amendmentOf": {
+        "type": "Number",
+        "required": false
+      },
+      "amendmentReason": {
+        "type": "String",
+        "required": false
+      },
+      "disputed.open": {
+        "type": "Boolean",
+        "required": false
+      },
+      "disputed.reason": {
+        "type": "String",
+        "required": false
+      },
+      "disputed.raisedBy": {
+        "type": "String",
+        "required": false
+      },
+      "disputed.at": {
+        "type": "Date",
+        "required": false
+      },
+      "disputed.prevStatus": {
+        "type": "String",
+        "required": false
+      },
+      "parties.buyer": {
+        "type": "Mixed",
+        "required": false
+      },
+      "parties.seller": {
+        "type": "Mixed",
+        "required": false
+      },
+      "terms": {
+        "type": "Mixed",
+        "required": false
+      },
+      "signers": {
+        "type": "Array",
+        "required": false
+      },
+      "documents": {
+        "type": "Array",
+        "required": false
+      },
+      "chain": {
+        "type": "Embedded",
+        "required": false
+      },
+      "milestones": {
+        "type": "Array",
+        "required": false
+      },
+      "history": {
+        "type": "Array",
+        "required": false
+      },
+      "audit": {
+        "type": "Array",
+        "required": false
+      },
+      "module2": {
+        "type": "Mixed",
+        "required": false
+      },
+      "_id": {
+        "type": "ObjectId",
+        "required": false
+      },
+      "createdAt": {
+        "type": "Date",
+        "required": false
+      },
+      "updatedAt": {
+        "type": "Date",
+        "required": false
+      },
+      "__v": {
+        "type": "Number",
+        "required": false
+      }
+    },
+    "indexes": [
+      [
+        {
+          "agreementId": 1
+        },
+        {
+          "unique": true,
+          "background": true
+        }
+      ],
+      [
+        {
+          "ref": 1
+        },
+        {
+          "background": true
+        }
+      ]
+    ]
+  },
+  {
+    "collection": "agreementcounters",
+    "model": "AgreementCounter",
+    "fields": {
+      "_id": {
+        "type": "String",
+        "required": false
+      },
+      "base": {
+        "type": "Number",
+        "required": false
+      },
+      "seq": {
+        "type": "Number",
+        "required": false
+      }
+    },
+    "indexes": []
+  },
+  {
+    "collection": "certificates",
+    "model": "Certificate",
+    "fields": {
+      "certificateId": {
+        "type": "String",
+        "required": false
+      },
+      "kind": {
+        "type": "String",
+        "required": false,
+        "enum": [
+          "lot",
+          "stage"
+        ]
+      },
+      "stage.key": {
+        "type": "String",
+        "required": false
+      },
+      "stage.name": {
+        "type": "String",
+        "required": false
+      },
+      "stage.order": {
+        "type": "Number",
+        "required": false
+      },
+      "cropId": {
+        "type": "String",
+        "required": false
+      },
+      "assessmentId": {
+        "type": "String",
+        "required": false
+      },
+      "batchId": {
+        "type": "String",
+        "required": false
+      },
+      "lotId": {
+        "type": "String",
+        "required": false
+      },
+      "agreementId": {
+        "type": "String",
+        "required": false
+      },
+      "buyer.m2Id": {
+        "type": "String",
+        "required": false
+      },
+      "buyer.userId": {
+        "type": "ObjectId",
+        "required": false,
+        "ref": "User"
+      },
+      "buyer.name": {
+        "type": "String",
+        "required": false
+      },
+      "fpo.id": {
+        "type": "String",
+        "required": false
+      },
+      "fpo.name": {
+        "type": "String",
+        "required": false
+      },
+      "product.crop": {
+        "type": "String",
+        "required": false
+      },
+      "product.variety": {
+        "type": "String",
+        "required": false
+      },
+      "product.origin": {
+        "type": "String",
+        "required": false
+      },
+      "requiredGrade": {
+        "type": "String",
+        "required": false
+      },
+      "totalKg": {
+        "type": "Number",
+        "required": false
+      },
+      "gradeMix": {
+        "type": "Mixed",
+        "required": false
+      },
+      "farmers": {
+        "type": "Array",
+        "required": false
+      },
+      "trace.headHash": {
+        "type": "String",
+        "required": false
+      },
+      "trace.intact": {
+        "type": "Boolean",
+        "required": false
+      },
+      "trace.events": {
+        "type": "Number",
+        "required": false
+      },
+      "trace.collectedAt": {
+        "type": "Date",
+        "required": false
+      },
+      "issuedAt": {
+        "type": "Date",
+        "required": false
+      },
+      "validUntil": {
+        "type": "Date",
+        "required": false
+      },
+      "issuedBy.role": {
+        "type": "String",
+        "required": false
+      },
+      "issuedBy.name": {
+        "type": "String",
+        "required": false
+      },
+      "issuedBy.userId": {
+        "type": "ObjectId",
+        "required": false,
+        "ref": "User"
+      },
+      "status": {
+        "type": "String",
+        "required": false,
+        "enum": [
+          "issued",
+          "revoked"
+        ]
+      },
+      "revoked.at": {
+        "type": "Date",
+        "required": false
+      },
+      "revoked.reason": {
+        "type": "String",
+        "required": false
+      },
+      "revoked.by": {
+        "type": "String",
+        "required": false
+      },
+      "documents": {
+        "type": "Array",
+        "required": false
+      },
+      "chain": {
+        "type": "Mixed",
+        "required": false
+      },
+      "revocationChain": {
+        "type": "Mixed",
+        "required": false
+      },
+      "audit": {
+        "type": "Array",
+        "required": false
+      },
+      "_id": {
+        "type": "ObjectId",
+        "required": false
+      },
+      "createdAt": {
+        "type": "Date",
+        "required": false
+      },
+      "updatedAt": {
+        "type": "Date",
+        "required": false
+      },
+      "__v": {
+        "type": "Number",
+        "required": false
+      }
+    },
+    "indexes": [
+      [
+        {
+          "certificateId": 1
+        },
+        {
+          "unique": true,
+          "background": true
+        }
+      ],
+      [
+        {
+          "cropId": 1
+        },
+        {
+          "background": true
+        }
+      ],
+      [
+        {
+          "lotId": 1
+        },
+        {
+          "background": true
+        }
+      ],
+      [
+        {
+          "agreementId": 1
+        },
+        {
+          "background": true
+        }
+      ],
+      [
+        {
+          "lotId": 1,
+          "status": 1
+        },
+        {
+          "background": true
+        }
+      ],
+      [
+        {
+          "farmers.userId": 1
+        },
+        {
+          "background": true
+        }
+      ],
+      [
+        {
+          "buyer.userId": 1
+        },
+        {
+          "background": true
+        }
+      ]
+    ]
+  },
+  {
+    "collection": "crops",
+    "model": "Crop",
+    "fields": {
+      "cropId": {
+        "type": "String",
+        "required": false
+      },
+      "farmer": {
+        "type": "ObjectId",
+        "required": false,
+        "ref": "User"
+      },
+      "m2FarmerId": {
+        "type": "String",
+        "required": false
+      },
+      "fpo.id": {
+        "type": "String",
+        "required": false
+      },
+      "fpo.name": {
+        "type": "String",
+        "required": false
+      },
+      "variety": {
+        "type": "String",
+        "required": false
+      },
+      "season": {
+        "type": "Number",
+        "required": false
+      },
+      "plot": {
+        "type": "String",
+        "required": false
+      },
+      "trees": {
+        "type": "Number",
+        "required": false
+      },
+      "district": {
+        "type": "String",
+        "required": false
+      },
+      "agreementId": {
+        "type": "String",
+        "required": false
+      },
+      "status": {
+        "type": "String",
+        "required": false,
+        "enum": [
+          "active",
+          "closed"
+        ]
+      },
+      "_id": {
+        "type": "ObjectId",
+        "required": false
+      },
+      "createdAt": {
+        "type": "Date",
+        "required": false
+      },
+      "updatedAt": {
+        "type": "Date",
+        "required": false
+      },
+      "__v": {
+        "type": "Number",
+        "required": false
+      }
+    },
+    "indexes": [
+      [
+        {
+          "cropId": 1
+        },
+        {
+          "unique": true,
+          "background": true
+        }
+      ],
+      [
+        {
+          "farmer": 1
+        },
+        {
+          "background": true
+        }
+      ],
+      [
+        {
+          "agreementId": 1
+        },
+        {
+          "background": true
+        }
+      ]
+    ]
+  },
+  {
+    "collection": "stageassessments",
+    "model": "StageAssessment",
+    "fields": {
+      "assessmentId": {
+        "type": "String",
+        "required": false
+      },
+      "cropId": {
+        "type": "String",
+        "required": false
+      },
+      "farmer": {
+        "type": "ObjectId",
+        "required": false,
+        "ref": "User"
+      },
+      "m2FarmerId": {
+        "type": "String",
+        "required": false
+      },
+      "fpoId": {
+        "type": "String",
+        "required": false
+      },
+      "batchId": {
+        "type": "String",
+        "required": false
+      },
+      "stage.key": {
+        "type": "String",
+        "required": false
+      },
+      "stage.name": {
+        "type": "String",
+        "required": false
+      },
+      "stage.order": {
+        "type": "Number",
+        "required": false
+      },
+      "version": {
+        "type": "Number",
+        "required": false
+      },
+      "previousId": {
+        "type": "String",
+        "required": false
+      },
+      "entries": {
+        "type": "Mixed",
+        "required": false
+      },
+      "photos": {
+        "type": "Array",
+        "required": false
+      },
+      "report": {
+        "type": "Mixed",
+        "required": false
+      },
+      "status": {
+        "type": "String",
+        "required": false,
+        "enum": [
+          "pending_review",
+          "approved",
+          "rejected",
+          "requires_correction"
+        ]
+      },
+      "review.decision": {
+        "type": "String",
+        "required": false
+      },
+      "review.remarks": {
+        "type": "String",
+        "required": false
+      },
+      "review.confirmedNotAssessable": {
+        "type": "Boolean",
+        "required": false
+      },
+      "review.by": {
+        "type": "String",
+        "required": false
+      },
+      "review.byUser": {
+        "type": "ObjectId",
+        "required": false,
+        "ref": "User"
+      },
+      "review.at": {
+        "type": "Date",
+        "required": false
+      },
+      "certificateId": {
+        "type": "String",
+        "required": false
+      },
+      "certificateError": {
+        "type": "String",
+        "required": false
+      },
+      "audit": {
+        "type": "Array",
+        "required": false
+      },
+      "_id": {
+        "type": "ObjectId",
+        "required": false
+      },
+      "createdAt": {
+        "type": "Date",
+        "required": false
+      },
+      "updatedAt": {
+        "type": "Date",
+        "required": false
+      },
+      "__v": {
+        "type": "Number",
+        "required": false
+      }
+    },
+    "indexes": [
+      [
+        {
+          "assessmentId": 1
+        },
+        {
+          "unique": true,
+          "background": true
+        }
+      ],
+      [
+        {
+          "cropId": 1
+        },
+        {
+          "background": true
+        }
+      ],
+      [
+        {
+          "farmer": 1
+        },
+        {
+          "background": true
+        }
+      ],
+      [
+        {
+          "fpoId": 1
+        },
+        {
+          "background": true
+        }
+      ],
+      [
+        {
+          "batchId": 1
+        },
+        {
+          "background": true
+        }
+      ],
+      [
+        {
+          "status": 1
+        },
+        {
+          "background": true
+        }
+      ],
+      [
+        {
+          "cropId": 1,
+          "stage.key": 1,
+          "version": -1
+        },
+        {
+          "background": true
+        }
+      ]
+    ]
+  },
+  {
+    "collection": "notifications",
+    "model": "Notification",
+    "fields": {
+      "user": {
+        "type": "ObjectId",
+        "required": true,
+        "ref": "User"
+      },
+      "type": {
+        "type": "String",
+        "required": true
+      },
+      "data": {
+        "type": "Mixed",
+        "required": false
+      },
+      "read": {
+        "type": "Boolean",
+        "required": false
+      },
+      "requestViewedAt": {
+        "type": "Date",
+        "required": false
+      },
+      "_id": {
+        "type": "ObjectId",
+        "required": false
+      },
+      "createdAt": {
+        "type": "Date",
+        "required": false
+      },
+      "updatedAt": {
+        "type": "Date",
+        "required": false
+      },
+      "__v": {
+        "type": "Number",
+        "required": false
+      }
+    },
+    "indexes": [
+      [
+        {
+          "user": 1
+        },
+        {
+          "background": true
+        }
+      ],
+      [
+        {
+          "user": 1,
+          "createdAt": -1
+        },
+        {
+          "background": true
+        }
+      ]
+    ]
+  },
+  {
+    "collection": "messagelogs",
+    "model": "MessageLog",
+    "fields": {
+      "user": {
+        "type": "ObjectId",
+        "required": false,
+        "ref": "User"
+      },
+      "channel": {
+        "type": "String",
+        "required": false,
+        "enum": [
+          "whatsapp",
+          "sms",
+          "voice"
+        ]
+      },
+      "template": {
+        "type": "String",
+        "required": false
+      },
+      "lang": {
+        "type": "String",
+        "required": false
+      },
+      "to": {
+        "type": "String",
+        "required": false
+      },
+      "body": {
+        "type": "String",
+        "required": false
+      },
+      "params": {
+        "type": "Array",
+        "required": false
+      },
+      "provider": {
+        "type": "String",
+        "required": false
+      },
+      "mode": {
+        "type": "String",
+        "required": false,
+        "enum": [
+          "live",
+          "simulated"
+        ]
+      },
+      "status": {
+        "type": "String",
+        "required": false,
+        "enum": [
+          "queued",
+          "sent",
+          "delivered",
+          "read",
+          "failed",
+          "simulated",
+          "skipped"
+        ]
+      },
+      "providerId": {
+        "type": "String",
+        "required": false
+      },
+      "attempts": {
+        "type": "Number",
+        "required": false
+      },
+      "retryable": {
+        "type": "Boolean",
+        "required": false
+      },
+      "nextRetryAt": {
+        "type": "Date",
+        "required": false
+      },
+      "lastError": {
+        "type": "String",
+        "required": false
+      },
+      "dedupeKey": {
+        "type": "String",
+        "required": false
+      },
+      "source.kind": {
+        "type": "String",
+        "required": false
+      },
+      "source.ref": {
+        "type": "String",
+        "required": false
+      },
+      "events": {
+        "type": "Array",
+        "required": false
+      },
+      "_id": {
+        "type": "ObjectId",
+        "required": false
+      },
+      "createdAt": {
+        "type": "Date",
+        "required": false
+      },
+      "updatedAt": {
+        "type": "Date",
+        "required": false
+      },
+      "__v": {
+        "type": "Number",
+        "required": false
+      }
+    },
+    "indexes": [
+      [
+        {
+          "user": 1
+        },
+        {
+          "background": true
+        }
+      ],
+      [
+        {
+          "channel": 1
+        },
+        {
+          "background": true
+        }
+      ],
+      [
+        {
+          "status": 1
+        },
+        {
+          "background": true
+        }
+      ],
+      [
+        {
+          "providerId": 1
+        },
+        {
+          "background": true
+        }
+      ],
+      [
+        {
+          "nextRetryAt": 1
+        },
+        {
+          "background": true
+        }
+      ],
+      [
+        {
+          "dedupeKey": 1
+        },
+        {
+          "background": true
+        }
+      ]
+    ]
+  },
+  {
+    "collection": "contactmessages",
+    "model": "ContactMessage",
+    "fields": {
+      "name": {
+        "type": "String",
+        "required": false
+      },
+      "contact": {
+        "type": "String",
+        "required": false
+      },
+      "role": {
+        "type": "String",
+        "required": false
+      },
+      "message": {
+        "type": "String",
+        "required": false
+      },
+      "ip": {
+        "type": "String",
+        "required": false
+      },
+      "_id": {
+        "type": "ObjectId",
+        "required": false
+      },
+      "createdAt": {
+        "type": "Date",
+        "required": false
+      },
+      "updatedAt": {
+        "type": "Date",
+        "required": false
+      },
+      "__v": {
+        "type": "Number",
+        "required": false
+      }
+    },
+    "indexes": []
+  },
+  {
+    "collection": "messagingcursors",
+    "model": "MessagingCursor",
+    "fields": {
+      "_id": {
+        "type": "String",
+        "required": false
+      },
+      "at": {
+        "type": "Date",
+        "required": false
+      },
+      "__v": {
+        "type": "Number",
+        "required": false
+      }
+    },
+    "indexes": []
+  },
+  {
+    "collection": "stageconfigs",
+    "model": "StageConfig",
+    "fields": {
+      "_id": {
+        "type": "String",
+        "required": false
+      },
+      "overrides": {
+        "type": "Array",
+        "required": false
+      },
+      "updatedBy": {
+        "type": "String",
+        "required": false
+      },
+      "createdAt": {
+        "type": "Date",
+        "required": false
+      },
+      "updatedAt": {
+        "type": "Date",
+        "required": false
+      },
+      "__v": {
+        "type": "Number",
+        "required": false
+      }
+    },
+    "indexes": []
+  },
+  {
+    "collection": "advisories",
+    "model": "Advisory",
+    "fields": {
+      "farmer": {
+        "type": "ObjectId",
+        "required": false,
+        "ref": "User"
+      },
+      "fpoId": {
+        "type": "String",
+        "required": false
+      },
+      "generatedAt": {
+        "type": "Date",
+        "required": false
+      },
+      "seasonNow": {
+        "type": "Date",
+        "required": false
+      },
+      "sources": {
+        "type": "Mixed",
+        "required": false
+      },
+      "specRows": {
+        "type": "Mixed",
+        "required": false
+      },
+      "lastVisitHint": {
+        "type": "String",
+        "required": false
+      },
+      "status": {
+        "type": "Mixed",
+        "required": false
+      },
+      "snapshots": {
+        "type": "Array",
+        "required": false
+      },
+      "items": {
+        "type": "Array",
+        "required": false
+      },
+      "_id": {
+        "type": "ObjectId",
+        "required": false
+      },
+      "createdAt": {
+        "type": "Date",
+        "required": false
+      },
+      "updatedAt": {
+        "type": "Date",
+        "required": false
+      },
+      "__v": {
+        "type": "Number",
+        "required": false
+      }
+    },
+    "indexes": [
+      [
+        {
+          "farmer": 1
+        },
+        {
+          "unique": true,
+          "background": true
+        }
+      ],
+      [
+        {
+          "fpoId": 1
+        },
+        {
+          "background": true
+        }
+      ],
+      [
+        {
+          "items.itemId": 1
+        },
+        {
+          "background": true
+        }
+      ]
+    ]
+  }
+]

@@ -1,3 +1,4 @@
+import { claimRequirement, activateClaim, releaseClaim } from "./allocation.js";
 import { Router } from "express";
 import { z } from "zod";
 import { HttpError, wrap } from "../../lib/http.js";
@@ -36,25 +37,15 @@ export default function bondsModule({ notifier, ml, weather }) {
   // Farmer drafts a bond against a requirement, limited by remaining need and own free capacity
   r.post("/", requireAuth("farmer"), wrap(async (req, res) => {
     const { requirementId, tons } = z.object({ requirementId: z.string(), tons: z.coerce.number().positive() }).parse(req.body);
-    const farmer = await User.findById(req.auth.id);
-    if (!farmer?.farm) throw new HttpError(409, "Complete your farm profile first", "needs_onboarding");
-    const reqt = await Requirement.findById(requirementId);
-    if (!reqt) throw new HttpError(404, "Requirement not found");
-    const left = reqt.tons - reqt.filled;
-    const free = Math.max(0, expectedYield(farmer.farm).gradeATons - (await committedTons(farmer._id)));
-    if (tons > left) throw new HttpError(400, `Only ${left.toFixed(1)} t still needed`, "exceeds_need");
-    if (tons > free) throw new HttpError(400, `Only ${free.toFixed(1)} t of your capacity is free`, "exceeds_capacity");
-    const bond = await Bond.create({
-      requirement: reqt._id, buyer: reqt.buyer, farmer: farmer._id, buyerName: reqt.buyerName,
-      farmerName: `${farmer.name} · ${farmer.farm.village}`, grade: reqt.grade, tons, priceUsd: reqt.priceUsd,
-      deliverBy: reqt.deliverBy, escalation: reqt.escalation,
-    });
-    await Requirement.updateOne({ _id: reqt._id }, { $inc: { interested: 1 } });
-    // every commitment gets a formal digital agreement (draft) that both parties sign
-    const agreement = await createFromBond(bond._id);
-    await notifier.toUsers([reqt.buyer], "bond_new", { bondId: shortId(bond), farmer: bond.farmerName, tons, grade: bond.grade, agreementId: agreement.agreementId });
-    notifier.changed("bonds", "requirements");
-    res.status(201).json(bond);
+    const { bond, agreement } = await claimRequirement(req.auth.id, requirementId, tons);
+    const reqt = { buyer: bond.buyer };
+    try {
+      await notifier.toUsers([reqt.buyer], "bond_new", { bondId: shortId(bond), farmer: bond.farmerName, tons, grade: bond.grade, agreementId: agreement.agreementId });
+      notifier.changed("bonds", "requirements", "contracts");
+    } catch {
+      console.warn("Commitment and draft agreement saved; buyer notification could not be sent.");
+    }
+    res.status(201).json({ ...bond.toObject(), agreementId: agreement.agreementId });
   }));
 
   async function mine(req) {
@@ -67,11 +58,13 @@ export default function bondsModule({ notifier, ml, weather }) {
   r.post("/:id/sign", wrap(async (req, res) => {
     const bond = await mine(req);
     const side = req.auth.role;
+    if (bond.status === "cancelled") throw new HttpError(409, "This claim was released", "claim_released");
     if (bond.sigs?.[side]?.hash) throw new HttpError(409, "Already signed", "already_signed");
     bond.sigs = { ...(bond.sigs?.toObject?.() || {}), [side]: makeSignature(bond, side) };
     if (bond.sigs.buyer?.hash && bond.sigs.farmer?.hash) {
+      await activateClaim(bond._id);
       bond.status = "active";
-      await Requirement.updateOne({ _id: bond.requirement }, { $inc: { filled: bond.tons } });
+      bond.reservationHeld = false;
     } else {
       bond.status = `${side}_signed`;
     }
@@ -100,9 +93,9 @@ export default function bondsModule({ notifier, ml, weather }) {
   r.delete("/:id", wrap(async (req, res) => {
     const bond = await mine(req);
     if (bond.status === "active" || bond.sigs?.[req.auth.role]?.hash) throw new HttpError(409, "Cannot decline a signed agreement", "locked");
-    await bond.deleteOne();
+    await releaseClaim(bond._id, { remove: true });
     await notifier.toUsers([otherParty(bond, req.auth.role)], "bond_declined", { bondId: shortId(bond), buyer: bond.buyerName, farmer: bond.farmerName, by: req.auth.role });
-    notifier.changed("bonds");
+    notifier.changed("bonds", "requirements", "contracts");
     res.json({ ok: true });
   }));
 

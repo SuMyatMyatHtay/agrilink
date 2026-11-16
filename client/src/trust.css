@@ -1,41 +1,17 @@
-/* =========================================================================
-   AgriLink Trust — agreement registry (navy / white / cyan, enterprise)
-   ========================================================================= */
-.trust {
-  --bg: #f4f6fa; --card: #ffffff; --ink: #0b1f3a; --text-2: #34465f; --mute: #66768c; --line: #e1e7ef; --line-2: #f0f3f8;
-  --brand: #0f2a4a; --brand-700: #0a1d34; --brand-50: #eef4fb; --brand-100: #dbe7f5; --brand2: #0891b2; --blue: #0891b2;
-  --good: #047857; --cyan: #0891b2; --cyan-50: #ecfeff; --radius: 12px;
-  background: var(--bg); color: var(--ink);
-}
-.trust .card { border-radius: 12px; }
-.trust h2 { font-size: 22px; }
-.trust .sidebar { background: #0b1f3a; border-right: 0; color: #c9d6e8; }
-.trust .sidebar .brand-name { color: #fff; }
-.trust .sidebar .brand-name span { color: #67e8f9; }
-.trust .sidebar .brand-tag, .trust .side-label { color: #8ea3bf; }
-.trust .sidebar .brand-mark { background: #0891b2; color: #fff; }
-.trust .side-nav a { color: #c9d6e8; }
-.trust .side-nav a:hover { background: rgba(255, 255, 255, .06); color: #fff; }
-.trust .side-nav a.on { background: rgba(8, 145, 178, .18); color: #fff; box-shadow: inset 3px 0 0 #22d3ee; }
-.trust .side-foot { border-top-color: rgba(255, 255, 255, .1); }
-.trust .user-card .who b { color: #fff; }
-.trust .user-card .who span { color: #8ea3bf; }
-.trust .avatar { background: rgba(34, 211, 238, .15); color: #67e8f9; }
-.trust .linkbtn { color: #0891b2; }
-.trust .sidebar .linkbtn { color: #67e8f9; }
-.trust .btn { border-radius: 8px; }
-.trust .btn.cyan { background: #0891b2; border-color: #0891b2; }
-.trust .btn.cyan:hover { background: #0e7490; }
-.trust .btn.danger { background: #fff; color: #b91c1c; border-color: #fecaca; }
-.trust .chip.on { background: var(--brand-50); color: var(--brand); border-color: var(--brand); }
-.trust .kpi .ic { width: 36px; height: 36px; display: grid; place-items: center; margin-bottom: 10px; background: var(--brand-50); color: var(--brand); border-radius: 10px; }
-.trust .kpi .ic.cyan { background: var(--cyan-50); color: #0891b2; }
-.trust .kpi .ic.green { background: #ecfdf5; color: #047857; }
-.trust .kpi .ic.amber { background: #fffbeb; color: #b45309; }
-.trust .kpi .ic.red { background: #fef2f2; color: #b91c1c; }
-.trust .kpi .l { text-transform: none; letter-spacing: 0; font-size: 13px; font-weight: 500; }
-.trust .insight { background: var(--cyan-50); border-color: #a5f3fc; }
-.trust .livecard { border-top-color: #0891b2; }
+/* Agreement components inherit the main AgriLink design system. */
+.agreement-pages .btn { border-radius: 8px; }
+.agreement-pages .btn.cyan { background: #0891b2; border-color: #0891b2; }
+.agreement-pages .btn.cyan:hover { background: #0e7490; }
+.agreement-pages .btn.danger { background: #fff; color: #b91c1c; border-color: #fecaca; }
+.agreement-pages .chip.on { background: var(--brand-50); color: var(--brand); border-color: var(--brand); }
+.agreement-pages .kpi .ic { width: 36px; height: 36px; display: grid; place-items: center; margin-bottom: 10px; background: var(--brand-50); color: var(--brand); border-radius: 10px; }
+.agreement-pages .kpi .ic.cyan { background: var(--cyan-50); color: #0891b2; }
+.agreement-pages .kpi .ic.green { background: #ecfdf5; color: #047857; }
+.agreement-pages .kpi .ic.amber { background: #fffbeb; color: #b45309; }
+.agreement-pages .kpi .ic.red { background: #fef2f2; color: #b91c1c; }
+.agreement-pages .kpi .l { text-transform: none; letter-spacing: 0; font-size: 13px; font-weight: 500; }
+.agreement-pages .insight { background: var(--cyan-50); border-color: #a5f3fc; }
+.agreement-pages .livecard { border-top-color: #0891b2; }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; word-break: break-all; }
 .hash { display: inline-flex; align-items: center; gap: 6px; background: #f1f5f9; border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; max-width: 100%; }
 .hash button { background: none; border: 0; color: var(--mute); cursor: pointer; padding: 0; display: grid; }
@@ -122,7 +98,7 @@
 .feed li { display: flex; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line-2); font-size: 13.5px; }
 .feed li:first-child { border-top: 0; }
 .feed .ic { width: 30px; height: 30px; border-radius: 8px; background: var(--brand-50); color: var(--brand); display: grid; place-items: center; flex: none; }
-.trust table a { color: var(--brand); font-weight: 600; text-decoration: none; }
+.agreement-pages table a { color: var(--brand); font-weight: 600; text-decoration: none; }
 @media (max-width: 960px) {
   .kv { grid-template-columns: 1fr; gap: 2px 0; }
   .kv dd { margin-bottom: 8px; }
@@ -134,9 +110,23 @@
 }
 
 @media (max-width: 960px) {
-  .trust .grid:not(.kpis) { grid-template-columns: 1fr !important; }
-  .trust .grid > div[style*="sticky"] { position: static !important; }
-  .trust .kpis { grid-template-columns: 1fr 1fr !important; }
+  .agreement-pages .grid:not(.kpis) { grid-template-columns: 1fr !important; }
+  .agreement-pages .grid > div[style*="sticky"] { position: static !important; }
+  .agreement-pages .kpis { grid-template-columns: 1fr 1fr !important; }
 }
 
-.trust table.nowrap td { white-space: nowrap; }
+.agreement-pages table.nowrap td { white-space: nowrap; }
+
+.agreement-pages { --cyan: var(--brand); --cyan-50: var(--brand-50); }
+.agreement-nav { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 22px; border-bottom: 1px solid var(--line); padding-bottom: 12px; }
+.agreement-nav a { padding: 8px 12px; color: var(--text-2); text-decoration: none; border-radius: 8px; font-size: 14px; }
+.agreement-nav a.active { color: var(--brand); background: var(--brand-50); font-weight: 600; }
+.agreement-pages .btn.cyan { background: var(--brand); border-color: var(--brand); }
+.agreement-pages .btn.cyan:hover { background: var(--brand-700); }
+.agreement-pages .chain-hero { background: var(--brand-50); color: var(--ink); border: 1px solid var(--line); }
+.agreement-pages .chain-hero h3, .agreement-pages .chain-hero .kv dd { color: var(--ink); }
+.agreement-pages .chain-hero .kv dt, .agreement-pages .chain-hero .hash button { color: var(--mute); }
+.agreement-pages .chain-hero h3 .icon { color: var(--brand); }
+.agreement-pages .chain-hero .hash { background: var(--card); color: var(--ink); border-color: var(--line); }
+.agreement-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 900px) { .agreement-grid { grid-template-columns: minmax(0, 1fr); } }

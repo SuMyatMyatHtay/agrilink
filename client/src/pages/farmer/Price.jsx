@@ -4,7 +4,6 @@ import { useI18n } from "../../i18n/index.jsx";
 import { useApi } from "../../hooks/useApi.js";
 import OfferAdvice from "../../components/OfferAdvice.jsx";
 import { ErrorBox, HBars, LineChart, Loading, inr } from "../../components/ui.jsx";
-import { DEMO_MODE } from "../../demo.js";
 
 const SCENARIOS = [-20, -10, 0, 10, 20];
 const sign = (v) => `${v > 0 ? "+" : ""}${v}%`;
@@ -16,7 +15,7 @@ function MandiCard() {
   return (
     <div className="card">
       <h3>{t("mandi_title")}</h3>
-      {m.source !== "agmarknet" && DEMO_MODE ? <><p className="note">Sample mandi prices · demo only</p><HBars items={[{ l: "Ratnagiri · Alphonso", v: 340 }, { l: "Devgad · Alphonso", v: 365 }, { l: "Mumbai · Alphonso", v: 390 }]} fmt={inr} /></> : m.source !== "agmarknet" ? <p className="note">{t("mandi_none")}</p> : (
+      {m.source !== "agmarknet" ? <p className="note">{t("mandi_none")}</p> : (
         <>
           <div className="big">{inr(m.avg_modal_kg)} <small className="note">{t("per_kg")}</small></div>
           <HBars items={m.records.slice(0, 6).map((r) => ({ l: `${r.market} · ${r.variety || ""} · ${r.date}`, v: r.modal_kg }))} fmt={inr} />

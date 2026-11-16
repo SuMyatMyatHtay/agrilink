@@ -1,0 +1,18 @@
+.farmer-secondary { margin-top: 22px; border-top: 1px solid var(--line); padding-top: 10px; }
+.portal-more { margin: 4px 0; }
+.portal-more > summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; list-style: none; cursor: pointer; padding: 12px; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--text-2); }
+.portal-more > summary::-webkit-details-marker { display: none; }
+.portal-more > summary::after { content: "⌄"; font-size: 18px; line-height: 1; color: var(--mute); }
+.portal-more[open] > summary::after { transform: rotate(180deg); }
+.portal-more > summary:hover { background: var(--line-2); }
+.portal-more > summary:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+.portal-more .side-nav { padding-left: 8px; border-left: 1px solid var(--line); margin: 4px 10px 12px; }
+.farmer-mobile-more { flex: 1; }
+.farmer-mobile-more > summary { list-style: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 2px 10px; color: var(--mute); font-size: 10.5px; font-weight: 500; }
+.farmer-mobile-more > summary::-webkit-details-marker { display: none; }
+.farmer-mobile-more > summary > span { height: 20px; font-size: 18px; line-height: 15px; letter-spacing: 2px; }
+.farmer-mobile-more[open] > summary { color: var(--brand); }
+.farmer-mobile-panel { position: fixed; bottom: calc(72px + env(safe-area-inset-bottom)); left: 12px; right: 12px; max-height: calc(100dvh - 160px); overflow-y: auto; padding: 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--card); box-shadow: 0 8px 40px rgba(20, 40, 28, .15); text-align: left; }
+.farmer-mobile-panel h3 { margin: 0 0 10px; font-size: 16px; }
+.bnav .farmer-mobile-panel .side-nav a { flex-direction: row; justify-content: flex-start; padding: 11px 10px; font-size: 14px; gap: 10px; }
+@media (min-width: 961px) { .farmer-mobile-more { display: none; } }

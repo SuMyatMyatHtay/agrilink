@@ -1,6 +1,9 @@
 # AgriLink
+For production build settings, the shared admin portal, hosting order and per-service environment templates, see [Hosting the current app](deploy/HOSTING.md).
 Trade-and-trust platform for perishable Alphonso mango exports, India -> Singapore.
 Stack: **React (Vite) + Node/Express + MongoDB** (MERN) with **Python FastAPI** for forecasting, grading and alerts. See `docs/ARCHITECTURE.md`.
+
+For the database-first setup, required provider accounts/environment variables, generated collection schema, and Vercel frontend/backend hosting decision, start with [Database and deployment setup](docs/DATABASE_AND_DEPLOYMENT.md). Existing OTP authentication is demo-only; provider credentials alone do not make it production authentication.
 
 ## Run locally (no Docker)
 For the verified Windows setup, environment settings, and startup script, see [docs/LOCAL_SETUP.md](docs/LOCAL_SETUP.md).

@@ -25,6 +25,17 @@ export const agreementRef = (agreementId) => ethers.keccak256(ethers.toUtf8Bytes
 const hex32 = (sha256hex) => "0x" + sha256hex.replace(/^0x/, "");
 
 export function createChain() {
+  // Do not instantiate ethers when this optional integration is disabled:
+  // its network detection otherwise continues retrying after startup catches an error.
+  if (process.env.CHAIN_ENABLED !== "true") {
+    const unavailable = async () => {
+      const error = new Error("Blockchain disabled. Set CHAIN_ENABLED=true after configuring a running blockchain node.");
+      error.code = "chain_disabled";
+      throw error;
+    };
+    return { enabled: false, info: unavailable, ensureDeployed: unavailable, register: unavailable,
+      lookup: unavailable, latest: unavailable, getVersion: unavailable };
+  }
   const rpc = process.env.CHAIN_RPC || "http://127.0.0.1:8545";
   const provider = new ethers.JsonRpcProvider(rpc, undefined, { staticNetwork: false });
   const wallet = new ethers.Wallet(process.env.CHAIN_PRIVATE_KEY || HARDHAT_DEV_KEY, provider);
@@ -100,5 +111,5 @@ export function createChain() {
     return { docHash: r.docHash, prevDocHash: r.prevDocHash, version: Number(r.version), registeredAt: new Date(Number(r.registeredAt) * 1000), registrar: r.registrar };
   }
 
-  return { info, ensureDeployed, register, lookup, latest, getVersion };
+  return { enabled: true, info, ensureDeployed, register, lookup, latest, getVersion };
 }

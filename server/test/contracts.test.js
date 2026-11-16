@@ -118,7 +118,7 @@ test("full agreement lifecycle with tamper detection", async () => {
 
   // commitment became binding
   const r2 = (await api("/requirements?grade=A", { token: f.token })).body.find((r) => r._id === target._id);
-  assert.equal(r2.filled, target.filled + 2);
+  assert.equal(r2.filled, target.filled + 1.5); // The signed terms reduced the original 2 t claim to 1.5 t.
 
   // verify: the real signed PDF matches; a modified copy does not
   const signedPdf = await api(`/contracts/${id}/document`, { token: buyer.token });

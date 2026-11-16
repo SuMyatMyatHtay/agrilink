@@ -1,0 +1,8 @@
+.request-banner { display: flex; align-items: center; gap: 14px; padding: 16px 20px; margin-bottom: 20px; background: #fff1f0; border: 1px solid #f0bcb7; border-left: 4px solid #c4332a; border-radius: 12px; color: #81251e; }
+.request-banner-icon { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; background: #fce0dc; color: #ac2921; flex-shrink: 0; }
+.request-banner strong { font-size: 15px; }
+.request-banner p { font-size: 13px; margin: 3px 0 0; color: #87443e; }
+.request-banner a { margin-left: auto; color: #92281f; font-size: 14px; font-weight: 700; white-space: nowrap; text-underline-offset: 3px; padding: 8px 0; }
+.request-banner a:focus-visible { outline: 2px solid #92281f; outline-offset: 4px; border-radius: 3px; }
+.offer.request-highlight { border: 2px solid var(--brand); scroll-margin-top: 90px; }
+@media(max-width: 600px) { .request-banner { gap: 10px; padding: 14px; flex-wrap: wrap; } .request-banner a { margin-left: 48px; padding: 0; } }

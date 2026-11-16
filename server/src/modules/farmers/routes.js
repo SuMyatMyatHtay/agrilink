@@ -74,7 +74,7 @@ export default function farmersModule({ ml }) {
     const reqs = await Requirement.find({ $expr: { $gt: ["$tons", "$filled"] } });
     const adv = await enrichMany(reqs, ml, user.farm.district);
     // each open offer: what the farmer keeps per kg + how many tons that buyer still needs
-    const offers = (g) => adv.filter((r) => r.grade === g && r.left > 0 && r.advice.farmerNetInr > 0)
+    const offers = (g) => adv.filter((r) => r.grade === g && r.left > 0 && r.advice?.farmerNetInr > 0)
       .map((r) => ({ net_kg: r.advice.farmerNetInr, tons: r.left }));
     const q = (k) => (req.query[k] !== undefined && req.query[k] !== "" ? Number(req.query[k]) : undefined);
     res.json(await ml.costAnalysis(costInputs(user, {

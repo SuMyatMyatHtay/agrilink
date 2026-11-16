@@ -3,6 +3,7 @@ import { getToken } from "../../api.js";
 import Icon from "../Icon.jsx";
 
 export const STATUS_LABEL = {
+  cancelled: "Cancelled — claim released",
   draft: "Draft", pending_signature: "Pending signature", signed: "Signed", registered: "Blockchain registered",
   in_progress: "In progress", completed: "Completed", disputed: "Disputed", amended: "Amended",
 };

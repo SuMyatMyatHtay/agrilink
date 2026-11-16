@@ -1,4 +1,5 @@
 import { useState } from "react";
+import RequestInbox from "./RequestInbox.jsx";
 import { Link, useNavigate } from "react-router-dom";
 import Icon from "../../components/Icon.jsx";
 import { api } from "../../api.js";
@@ -89,14 +90,15 @@ export default function Home() {
   const f = user.farm, s = sum.data;
   const best = (offers.data || []).filter((r) => r.left > 0).sort((a, b) => b.offerInr - a.offerInr)[0];
 
-  if (sum.loading) return <Loading />;
-  if (!s) return <ErrorBox error={sum.error} />;
+  if (sum.loading) return <><RequestInbox /><Loading /></>;
+  if (!s) return <><RequestInbox /><ErrorBox error={sum.error} /></>;
   const win = `${wk(s.window.start)} – ${wk(s.window.end)}`;
   const spoken = `${t("hello", { name: user.name })}. ${t("expected_yield")}: ${s.expectedTons} ${t("tons")}. ${t("gradeA_est")}: ${s.gradeATons} ${t("tons")}. ${t("harvest_window")}: ${win}. ${t("free_cap")}: ${s.freeTons} ${t("tons")}.`;
 
   const QUICK = [["/farmer/offers", "offers", "n_offers"], ["/farmer/demand", "demand", "n_demand"], ["/farmer/price", "price", "n_price"], ["/farmer/profit", "profit", "n_profit"], ["/farmer/agreements", "agreements", "n_bonds"]];
   return (
     <>
+      <RequestInbox />
       <section className="hero-card">
         <div className="hero-top">
           <div>

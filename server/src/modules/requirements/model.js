@@ -12,6 +12,7 @@ const requirementSchema = new mongoose.Schema(
     deliverBy: { type: Date, required: true },
     escalation: { enabled: { type: Boolean, default: false }, pct: { type: Number, default: 0 } },
     filled: { type: Number, default: 0 },
+    reserved: { type: Number, default: 0, min: 0 },
     interested: { type: Number, default: 0 },
   },
   { timestamps: true }

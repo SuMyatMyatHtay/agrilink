@@ -6,7 +6,6 @@ import Icon from "../../components/Icon.jsx";
 import PreSignCheck from "../../components/PreSignCheck.jsx";
 import { ErrorBox, Loading, useToast } from "../../components/ui.jsx";
 import { Hash, dt, fetchPdf, usd } from "../../components/trust/ui.jsx";
-import { DEMO_MODE } from "../../demo.js";
 
 function SignaturePad({ onChange }) {
   const ref = useRef(null);
@@ -101,7 +100,6 @@ export default function Sign() {
           {!otpSent ? <button className="btn" disabled={busy} onClick={sendOtp}>Send OTP</button> : (
             <>
               <p className="insight">OTP sent to {otpSent.sentTo}{otpSent.hint ? ` · ${otpSent.hint}` : ""}</p>
-              {DEMO_MODE && <p className="note">Local demo: enter <b>1234</b>. No SMS is sent.</p>}
               <label>One-time password</label>
               <input inputMode="numeric" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="••••" />
               <div className="mrow"><button className="btn alt" disabled={busy} onClick={sendOtp}>Resend</button><button className="btn cyan" disabled={busy || otp.length < 4} onClick={verify}>Verify</button></div>

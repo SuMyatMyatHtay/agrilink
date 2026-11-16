@@ -20,6 +20,7 @@ export function bridgeNotifications(notifier, messenger) {
         if (u?.role !== "farmer") continue;
         const L = u.lang || "en", d = n.data || {};
         const map = {
+          req_new: ["new_requirement", { buyer: d.buyer, grade: d.grade, tons: String(d.tons), price: String(d.offerUsd ?? ""), url: `${(process.env.PUBLIC_APP_URL || "http://localhost:5173").replace(/\/$/, "")}/farmer/offers?requirement=${d.reqId}` }],
           contract_sign_request: ["agreement_update", { id: d.agreementId, event: word("ev_sign_request", L) }],
           contract_signed_by: ["agreement_update", { id: d.agreementId, event: word("ev_signed", L) }],
           contract_registered: ["agreement_update", { id: d.agreementId, event: word("ev_registered", L) }],

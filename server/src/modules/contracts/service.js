@@ -2,7 +2,7 @@ import { HttpError } from "../../lib/http.js";
 import { User } from "../users/model.js";
 import { Bond } from "../bonds/model.js";
 import { Requirement } from "../requirements/model.js";
-import { Agreement } from "./model.js";
+import { Agreement, AgreementCounter } from "./model.js";
 import { appendAudit, verifyAudit } from "./audit.js";
 import { renderAgreementPdf } from "./pdf.js";
 import { getProvider } from "./esign/index.js";
@@ -55,20 +55,24 @@ export function defaultTerms(reqt, tons, farmer) {
   };
 }
 
-export async function nextAgreementId() {
+export async function nextAgreementId(session = null) {
   const y = new Date().getFullYear();
-  const n = await Agreement.countDocuments({ agreementId: new RegExp(`^AGL-${y}-`) });
-  return `AGL-${y}-${String(n + 1).padStart(5, "0")}`;
+  const last = await Agreement.findOne({ agreementId: new RegExp(`^AGL-${y}-`) }).sort({ agreementId: -1 }).session(session);
+  const base = last ? Number(last.agreementId.split("-").pop()) : 0;
+  const counter = await AgreementCounter.findOneAndUpdate({ _id: String(y) }, { $inc: { seq: 1 }, $setOnInsert: { base } }, { new: true, upsert: true, session });
+  return `AGL-${y}-${String(counter.base + counter.seq).padStart(5, "0")}`;
 }
 
 /** Create the draft agreement for a farmer's commitment (one agreement per bond). */
-export async function createFromBond(bondId) {
-  const existing = await Agreement.findOne({ bond: bondId });
+export async function createFromBond(bondId, session = null) {
+  const existing = await Agreement.findOne({ bond: bondId }).session(session);
   if (existing) return existing;
-  const bond = await Bond.findById(bondId);
-  const [buyer, farmer, reqt] = await Promise.all([User.findById(bond.buyer), User.findById(bond.farmer), Requirement.findById(bond.requirement)]);
+  const bond = await Bond.findById(bondId).session(session);
+  const buyer = await User.findById(bond.buyer).session(session);
+  const farmer = await User.findById(bond.farmer).session(session);
+  const reqt = await Requirement.findById(bond.requirement).session(session);
   const a = new Agreement({
-    agreementId: await nextAgreementId(), bond: bond._id, requirement: reqt._id, buyer: buyer._id, farmer: farmer._id,
+    agreementId: await nextAgreementId(session), bond: bond._id, requirement: reqt._id, buyer: buyer._id, farmer: farmer._id,
     parties: {
       buyer: { company: buyer.company || buyer.name, contactName: buyer.name || buyer.company, country: "Singapore", maskedMobile: mask(buyer.mobile), address: "Singapore" },
       seller: { farmerName: farmer.name, fpo: farmer.farm.fpo || "—", village: farmer.farm.village, district: farmer.farm.district, maskedMobile: mask(farmer.mobile) },
@@ -82,7 +86,7 @@ export async function createFromBond(bondId) {
   a.ref = agreementRef(a.agreementId);
   addMilestone(a, "created", { actorRole: "system", actorName: "AgriLink" });
   appendAudit(a, { actorRole: "farmer", actorName: farmer.name, action: "agreement_created", details: { agreementId: a.agreementId, bondId: String(bond._id), tons: bond.tons } });
-  await a.save();
+  await a.save({ session });
   return a;
 }
 
@@ -151,7 +155,7 @@ export function verifyIdentity(a, auth, otp) {
 }
 
 /** Sign; when both parties have signed, produce the signed PDF and register its hash on-chain. */
-export async function sign(a, auth, body, meta, { store, chain, onRegistered }) {
+export async function sign(a, auth, body, meta, { store, chain, onRegistered, onSigned }) {
   if (a.status !== "pending_signature") throw new HttpError(409, "Agreement is not awaiting signatures", "not_pending");
   const s = a.signers.find((x) => x.role === auth.role);
   if (s.status === "signed") throw new HttpError(409, "Already signed", "already_signed");
@@ -160,10 +164,10 @@ export async function sign(a, auth, body, meta, { store, chain, onRegistered }) 
   const actor = actorOf(a, auth);
   addMilestone(a, auth.role === "buyer" ? "buyer_signed" : "fpo_signed", actor);
   appendAudit(a, { ...actor, action: "signed", details: { certificateId: s.signature.certificateId, signedDocHash: draft.sha256 } });
-  if (a.signers.every((x) => x.status === "signed")) await finalize(a, { store, chain, onRegistered });
+  if (a.signers.every((x) => x.status === "signed")) await finalize(a, { store, chain, onRegistered, onSigned });
 }
 
-export async function finalize(a, { store, chain, onRegistered }) {
+export async function finalize(a, { store, chain, onRegistered, onSigned }) {
   const draft = currentDraft(a);
   let signed = a.documents.find((d) => d.version === a.version && d.kind === "signed");
   if (!signed) {
@@ -174,6 +178,7 @@ export async function finalize(a, { store, chain, onRegistered }) {
     a.status = "signed";
     appendAudit(a, { actorRole: "system", actorName: "AgriLink", action: "signed_pdf_stored", details: { sha256: put.sha256, key: put.key, storage: "write-once versioned store" } });
   }
+  if (onSigned) await onSigned(a);
   await registerOnChain(a, signed, { chain, onRegistered });
 }
 

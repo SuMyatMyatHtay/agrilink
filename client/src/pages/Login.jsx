@@ -5,8 +5,6 @@ import { useI18n } from "../i18n/index.jsx";
 import { LangChips } from "../components/ui.jsx";
 import Icon from "../components/Icon.jsx";
 import { WelcomePhoto } from "./Landing.jsx";
-import { api } from "../api.js";
-import { DEMO_MODE, DEMO_FARMS } from "../demo.js";
 
 const DEMOS = {
   farmer: [
@@ -26,7 +24,7 @@ const DEMOS = {
 export default function Login() {
   const { role } = useParams();
   const { t } = useI18n();
-  const { login, setUser } = useAuth();
+  const { login } = useAuth();
   const nav = useNavigate();
   const [mobile, setMobile] = useState("");
   const [otp, setOtp] = useState("");
@@ -51,16 +49,7 @@ export default function Login() {
   const after = (r) => r && nav(isFarmer ? (r.needsOnboarding ? "/farmer/onboarding" : "/farmer/home") : isOps ? "/ops/decisions" : "/buyer", { replace: true });
 
   const submit = async (e) => { e.preventDefault(); after(await go(mobile.trim(), otp.trim(), { company: company.trim() || undefined })); };
-  const quick = async (m) => {
-    const r = await go(m, "1234");
-    if (r?.needsOnboarding && DEMO_MODE && DEMO_FARMS[m]) {
-      try {
-        setUser(await api("/farmers/me", { method: "PUT", body: DEMO_FARMS[m] }));
-        r.needsOnboarding = false;
-      } catch { return after(r); }
-    }
-    after(r);
-  };
+  const quick = async (m) => { after(await go(m, "", { demo: true })); };
 
   return (
     <div className="welcome">

@@ -1,3 +1,4 @@
+import { availableTons } from "../bonds/allocation.js";
 import { Router } from "express";
 import { z } from "zod";
 import { env } from "../../config/env.js";
@@ -28,6 +29,19 @@ async function liveMandi(ml) {
  * what the farmer keeps, vs selling at the local market, vs the fair price -> accept / negotiate / sell locally.
  */
 export async function enrichMany(rows, ml, district = "Sindhudurg") {
+  try {
+    return await enrichWithModel(rows, ml, district);
+  } catch {
+    // Pricing advice is optional. A model outage must not hide a saved offer
+    // or make a successful write look like a failure that the buyer should retry.
+    return rows.map((r) => ({ ...r.toObject(), left: availableTons(r),
+      offerInr: +(r.priceUsd * env.usdInr).toFixed(2), forecastInr: null,
+      verdict: { status: "unavailable", pct: null }, vsMandiPct: null,
+      mandiSource: "unavailable", advice: null }));
+  }
+}
+
+async function enrichWithModel(rows, ml, district = "Sindhudurg") {
   if (!rows.length) return [];
   const evals = await ml.evaluate(district, rows.map((r) => ({
     id: String(r._id), grade: r.grade, price_usd_kg: r.priceUsd,
@@ -45,7 +59,7 @@ export async function enrichMany(rows, ml, district = "Sindhudurg") {
     }
     return {
       ...r.toObject(),
-      left: +(r.tons - r.filled).toFixed(1),
+      left: availableTons(r),
       offerInr: e.offer_inr, forecastInr: e.fair_offer_inr, verdict: e.verdict, vsMandiPct, mandiSource,
       advice: {
         decision: e.decision, farmerNetInr: e.farmer_net_inr, marketNetInr: e.market_net_inr, marketPriceInr: e.market_price_inr,
@@ -61,6 +75,7 @@ export default function requirementsModule({ ml, notifier }) {
 
   r.get("/", requireAuth(), wrap(async (req, res) => {
     const filter = {};
+    if (req.query.open === "true") filter.$expr = { $gt: [{ $subtract: ["$tons", { $add: ["$filled", { $ifNull: ["$reserved", 0] }] }] }, 0] };
     if (req.query.grade) filter.grade = String(req.query.grade);
     if (req.auth.role === "buyer") filter.buyer = req.auth.id;
     const rows = await Requirement.find(filter).sort({ createdAt: -1 });
@@ -75,14 +90,18 @@ export default function requirementsModule({ ml, notifier }) {
     const doc = await Requirement.create({ ...body, buyer: buyer._id, buyerName: buyer.company || buyer.name || buyer.mobile });
     const [out] = await enrichMany([doc], ml);
     // Notify every onboarded farmer immediately (saved for offline farmers too)
-    await notifier.toFarmers("req_new", { reqId: String(doc._id), buyer: doc.buyerName, grade: doc.grade, tons: doc.tons, offerInr: out.offerInr, verdict: out.verdict.status });
-    notifier.changed("requirements");
+    try {
+      await notifier.toFarmers("req_new", { reqId: String(doc._id), buyer: doc.buyerName, grade: doc.grade, tons: doc.tons, offerUsd: doc.priceUsd, offerInr: out.offerInr, verdict: out.verdict.status });
+      notifier.changed("requirements");
+    } catch {
+      console.warn("Requirement saved; farmer notification could not be sent.");
+    }
     res.status(201).json(out);
   }));
 
   r.delete("/:id", requireAuth("buyer"), wrap(async (req, res) => {
-    const doc = await Requirement.findOneAndDelete({ _id: req.params.id, buyer: req.auth.id });
-    if (!doc) throw new HttpError(404, "Requirement not found");
+    const doc = await Requirement.findOneAndDelete({ _id: req.params.id, buyer: req.auth.id, filled: 0, $or: [{ reserved: 0 }, { reserved: { $exists: false } }] });
+    if (!doc) throw new HttpError(409, "Requirements with claims or signed agreements cannot be withdrawn", "requirement_in_use");
     notifier.changed("requirements");
     res.json({ ok: true });
   }));

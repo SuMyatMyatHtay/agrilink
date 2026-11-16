@@ -7,6 +7,7 @@ const notificationSchema = new mongoose.Schema(
     type: { type: String, required: true }, // req_new | bond_new | bond_signed | bond_active | bond_declined | weather
     data: { type: mongoose.Schema.Types.Mixed, default: {} },
     read: { type: Boolean, default: false },
+    requestViewedAt: Date,
   },
   { timestamps: true }
 );

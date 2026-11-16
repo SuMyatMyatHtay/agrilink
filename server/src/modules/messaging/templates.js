@@ -9,6 +9,9 @@ export const LANG_CODES = { en: "en", hi: "hi", mr: "mr", gu: "gu", ta: "ta", te
 export const SPEECH_CODES = { en: "en-IN", hi: "hi-IN", mr: "mr-IN", gu: "gu-IN", ta: "ta-IN", te: "te-IN", kn: "kn-IN" };
 
 export const TEMPLATES = {
+  new_requirement: { sms: false, params: ["buyer", "grade", "tons", "price", "url"], text: {
+    en: "AgriLink: {buyer} needs Grade {grade} mangoes, {tons} tons at USD {price}/kg. First come, first served. View available quantity and claim: {url}",
+  } },
   inspection_result: { sms: false, params: ["result"], text: {
     en: "AgriLink: New quality result for your mangoes: {result}. See details in the app.",
     hi: "AgriLink: आपके आमों का नया गुणवत्ता परिणाम: {result}। विवरण ऐप में देखें।",
