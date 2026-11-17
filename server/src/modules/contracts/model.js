@@ -9,7 +9,7 @@ const signatureSchema = new mongoose.Schema({
 }, { _id: false });
 
 const signerSchema = new mongoose.Schema({
-  role: { type: String, enum: ["buyer", "farmer"], required: true },
+  role: { type: String, enum: ["buyer", "farmer", "witness"], required: true },
   user: { type: ObjectId, ref: "User", required: true },
   name: String,
   organisation: String,
@@ -18,6 +18,7 @@ const signerSchema = new mongoose.Schema({
   identity: { method: String, verifiedAt: Date, provider: String },
   signature: signatureSchema,
   sentAt: Date,
+  fpoId: String,
 }, { _id: false });
 
 const documentSchema = new mongoose.Schema({
@@ -47,6 +48,7 @@ const agreementSchema = new mongoose.Schema({
   requirement: { type: ObjectId, ref: "Requirement" },
   buyer: { type: ObjectId, ref: "User", required: true },
   farmer: { type: ObjectId, ref: "User", required: true },
+  witnessRequired: { type: Boolean, default: true },
   version: { type: Number, default: 1 },
   status: { type: String, enum: ["cancelled", "draft", "pending_signature", "signed", "registered", "in_progress", "completed", "disputed"], default: "draft" },
   amendmentOf: Number,          // previous version number when this version is an amendment

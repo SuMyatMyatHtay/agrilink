@@ -1,12 +1,12 @@
 /** Read-only access to farm operations (Module 2) for certification: lots, quality reviews, doctor visits, photo checks. */
-const base = () => process.env.M2_API_URL || "http://127.0.0.1:8100/api/m2";
+import { m2Base as base, m2Headers } from "../../lib/m2config.js";
 
 export async function m2Get(path, query) {
   const url = new URL(base().replace(/\/$/, "") + path);
   for (const [k, v] of Object.entries(query || {})) if (v != null) url.searchParams.set(k, v);
   let res;
   try {
-    res = await fetch(url, { headers: { "X-M2-Role": "admin", "X-M2-Actor": "agrilink-certification" }, signal: AbortSignal.timeout(8000) });
+    res = await fetch(url, { headers: { "X-M2-Role": "admin", "X-M2-Actor": "agrilink-certification", ...m2Headers() }, signal: AbortSignal.timeout(15000) });
   } catch {
     const e = new Error("Farm operations service (Module 2) is not reachable"); e.status = 502; throw e;
   }

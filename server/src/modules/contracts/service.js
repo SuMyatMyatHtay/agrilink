@@ -7,10 +7,11 @@ import { appendAudit, verifyAudit } from "./audit.js";
 import { renderAgreementPdf } from "./pdf.js";
 import { getProvider } from "./esign/index.js";
 import { agreementRef } from "./chain.js";
+import { attachWitness, signerFor, requireSigner } from "./witness.js";
 
 /** Lifecycle: automatic steps + manual steps (who may record them). Manual steps must happen in this order. */
 export const LIFECYCLE = [
-  "created", "sent", "buyer_signed", "fpo_signed", "registered",
+  "created", "sent", "buyer_signed", "fpo_signed", "witness_signed", "registered",
   "harvest_completed", "quality_inspected", "packing_completed", "shipment_dispatched", "goods_received", "payment_completed",
 ];
 export const MANUAL = {
@@ -22,8 +23,8 @@ const EDITABLE = ["quantityTons", "priceUsdPerKg", "qualitySpec", "packaging", "
 
 const mask = (m) => (m ? `${m.slice(0, 2)}XXXXXX${m.slice(-2)}` : "");
 const actorOf = (a, auth) => {
-  const s = a.signers.find((x) => String(x.user) === String(auth.id));
-  return { actorRole: auth.role, actorName: s?.name || auth.role };
+  const s = signerFor(a, auth);
+  return { actorRole: s?.role || auth.role, actorName: s?.name || auth.role };
 };
 
 const QUALITY = {
@@ -96,9 +97,10 @@ function addMilestone(a, key, actor, note) {
 }
 
 /** Parties can read and act; operations staff can read every agreement (read-only) to run farm operations. */
-export async function loadFor(id, auth, { read = false } = {}) {
+export async function loadFor(id, auth, { read = false, witness = false } = {}) {
   const a = await Agreement.findOne({ agreementId: id });
-  const ok = a && ([String(a.buyer), String(a.farmer)].includes(String(auth.id)) || (read && auth.role === "operations"));
+  const ok = a && ([String(a.buyer), String(a.farmer)].includes(String(auth.id)) || (read && auth.role === "operations") ||
+    (witness && auth.role === "operations" && signerFor(a, auth)?.role === "witness"));
   if (!ok) throw new HttpError(404, "Agreement not found", "not_found");
   return a;
 }
@@ -125,6 +127,7 @@ export function updateTerms(a, auth, patch) {
 
 export async function sendForSignature(a, auth, store) {
   if (a.status !== "draft") throw new HttpError(409, "Agreement is not a draft", "not_draft");
+  await attachWitness(a);
   const n = a.documents.filter((d) => d.version === a.version && d.kind === "draft").length + 1;
   const pdf = await renderAgreementPdf(a);
   const put = await store.putOnce(`${a.agreementId}/v${a.version}-draft-${n}.pdf`, pdf);
@@ -133,7 +136,8 @@ export async function sendForSignature(a, auth, store) {
   a.status = "pending_signature";
   const actor = actorOf(a, auth);
   addMilestone(a, "sent", actor);
-  appendAudit(a, { ...actor, action: "sent_for_signature", details: { draftSha256: put.sha256, provider: getProvider().name } });
+  appendAudit(a, { ...actor, action: "sent_for_signature", details: { draftSha256: put.sha256, provider: getProvider().name,
+    witnessUser: String(a.signers.find(s => s.role === "witness").user), witnessFpo: a.signers.find(s => s.role === "witness").fpoId } });
   return put;
 }
 
@@ -141,7 +145,7 @@ const currentDraft = (a) => [...a.documents].reverse().find((d) => d.version ===
 
 export function startIdentity(a, auth) {
   if (a.status !== "pending_signature") throw new HttpError(409, "Agreement is not awaiting signatures", "not_pending");
-  const s = a.signers.find((x) => x.role === auth.role);
+  const s = requireSigner(a, auth);
   if (s.status === "signed") throw new HttpError(409, "Already signed", "already_signed");
   const out = getProvider().startIdentity(s);
   appendAudit(a, { ...actorOf(a, auth), action: "identity_otp_sent", details: { method: out.method, to: out.sentTo } });
@@ -149,7 +153,9 @@ export function startIdentity(a, auth) {
 }
 
 export function verifyIdentity(a, auth, otp) {
-  const s = a.signers.find((x) => x.role === auth.role);
+  if (a.status !== "pending_signature") throw new HttpError(409, "Agreement is not awaiting signatures", "not_pending");
+  const s = requireSigner(a, auth);
+  if (s.status === "signed") throw new HttpError(409, "Already signed", "already_signed");
   getProvider().verifyIdentity(s, otp);
   appendAudit(a, { ...actorOf(a, auth), action: "identity_verified", details: { method: "mobile_otp" } });
 }
@@ -157,12 +163,12 @@ export function verifyIdentity(a, auth, otp) {
 /** Sign; when both parties have signed, produce the signed PDF and register its hash on-chain. */
 export async function sign(a, auth, body, meta, { store, chain, onRegistered, onSigned }) {
   if (a.status !== "pending_signature") throw new HttpError(409, "Agreement is not awaiting signatures", "not_pending");
-  const s = a.signers.find((x) => x.role === auth.role);
+  const s = requireSigner(a, auth);
   if (s.status === "signed") throw new HttpError(409, "Already signed", "already_signed");
   const draft = currentDraft(a);
   getProvider().sign(s, { ...body, ...meta, docHash: draft.sha256 });
   const actor = actorOf(a, auth);
-  addMilestone(a, auth.role === "buyer" ? "buyer_signed" : "fpo_signed", actor);
+  addMilestone(a, s.role === "buyer" ? "buyer_signed" : s.role === "witness" ? "witness_signed" : "fpo_signed", actor);
   appendAudit(a, { ...actor, action: "signed", details: { certificateId: s.signature.certificateId, signedDocHash: draft.sha256 } });
   if (a.signers.every((x) => x.status === "signed")) await finalize(a, { store, chain, onRegistered, onSigned });
 }
@@ -183,6 +189,10 @@ export async function finalize(a, { store, chain, onRegistered, onSigned }) {
 }
 
 export async function registerOnChain(a, signed, { chain, onRegistered }) {
+  if (chain.enabled === false) {
+    a.chain = { status: "not_registered" };
+    return;
+  }
   try {
     const rec = await chain.register(a.agreementId, signed.sha256, a.version);
     a.chain = rec;

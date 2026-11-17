@@ -11,6 +11,9 @@ import { PROVIDERS, getProvider } from "./esign/index.js";
 import * as svc from "./service.js";
 import { handToModule2 } from "../module2/handoff.js";
 import { appendAudit } from "./audit.js";
+import { User } from "../users/model.js";
+import { m2Id } from "../module2/handoff.js";
+import { signerFor, witnessReady } from "./witness.js";
 
 /**
  * Digital agreements: create → edit (draft) → send → OTP identity + e-signature (both parties) → signed PDF (write-once)
@@ -23,12 +26,38 @@ export default function contractsModule({ notifier, contractDeps }) {
   const meta = (req) => ({ ip: req.headers["x-forwarded-for"]?.split(",")[0] || req.socket.remoteAddress, userAgent: req.headers["user-agent"] });
   const other = (a, role) => (role === "buyer" ? a.farmer : a.buyer);
   const notify = (users, type, a, extra = {}) => notifier.toUsers(users, type, { agreementId: a.agreementId, version: a.version, ...extra });
+  const view = (a, auth) => ({ ...svc.publicView(a), myRole: signerFor(a, auth)?.role || auth.role, witnessReady: witnessReady(a) });
+
+  r.get("/witness-assignment", requireAuth("operations"), wrap(async (req, res) => {
+    const me = await User.findById(req.auth.id);
+    const admin = !me.m2Role || me.m2Role === "admin";
+    const farmers = await User.find({ role: "farmer", farm: { $exists: true } }).select("name farm fpoOfficer");
+    const visible = farmers.filter(f => admin || m2Id.fpo(f.farm) === (me.officerFpoId || me.m2Actor));
+    const officers = await User.find({ role: "operations" }).select("name officerFpoId");
+    res.json({ canAssign: admin, farmers: visible.map(f => ({ id: f._id, name: f.name, fpo: f.farm.fpo || f.farm.village,
+      fpoId: m2Id.fpo(f.farm), officerId: f.fpoOfficer || null })), officers: officers.map(o => ({ id: o._id, name: o.name || "Operations officer", fpoId: o.officerFpoId || null })) });
+  }));
+  r.put("/witness-assignment/:farmerId", requireAuth("operations"), wrap(async (req, res) => {
+    const me = await User.findById(req.auth.id);
+    if (me.m2Role && me.m2Role !== "admin") throw new HttpError(403, "Use the AgriLink operations desk to assign an officer", "admin_required");
+    const { officerId } = z.object({ officerId: z.string().regex(/^[a-f\d]{24}$/i) }).parse(req.body);
+    const farmer = await User.findOne({ _id: req.params.farmerId, role: "farmer", farm: { $exists: true } });
+    if (!farmer) throw new HttpError(404, "Farmer not found", "not_found");
+    const fpoId = m2Id.fpo(farmer.farm);
+    // Atomic affiliation prevents one officer being assigned to two FPOs in a race.
+    const officer = await User.findOneAndUpdate({ _id: officerId, role: "operations", $or: [{ officerFpoId: fpoId }, { officerFpoId: { $exists: false } }] },
+      { $set: { officerFpoId: fpoId } }, { new: true });
+    if (!officer) throw new HttpError(409, "Choose an operations account belonging to this FPO, or an unassigned account", "wrong_fpo");
+    farmer.fpoOfficer = officer._id;
+    await farmer.save();
+    res.json({ ok: true });
+  }));
 
   /** Optional on-chain follow-up; activation already occurs once both parties sign — first version only. */
   const onRegistered = async (a) => {
     if (a.version === 1 && a.bond) await activateClaim(a.bond);
     await notify([a.buyer, a.farmer], "contract_registered", a, { txHash: a.chain.txHash, block: a.chain.blockNumber });
-    if (a.version === 1) await handoff(a);
+    if (a.version === 1 && a.module2?.status !== "handed_over") await handoff(a);
     notifier.changed("bonds", "requirements", "contracts");
   };
 
@@ -45,14 +74,16 @@ export default function contractsModule({ notifier, contractDeps }) {
     const list = await Agreement.find(scope).sort({ updatedAt: -1 });
     const activity = list.flatMap((a) => a.audit.slice(-6).map((e) => ({ agreementId: a.agreementId, at: e.at, action: e.action, actorName: e.actorName, actorRole: e.actorRole })))
       .sort((x, y) => new Date(y.at) - new Date(x.at)).slice(0, 12);
-    res.json({ stats: svc.stats(list, req.auth.id), activity, items: list.map(svc.publicView) });
+    res.json({ stats: svc.stats(list, req.auth.id), activity, items: list.map(a => view(a, req.auth)) });
   }));
 
   r.get("/meta", wrap(async (_req, res) => {
     let chain = null;
-    try { chain = await deps().chain.info(); } catch (e) { chain = { error: String(e.message).slice(0, 200) }; }
+    try { chain = { ...(await deps().chain.info()), enabled: true, status: "connected" }; }
+    catch (e) { chain = { enabled: deps().chain.enabled !== false, status: e.code === "chain_disabled" ? "disabled" : "unavailable",
+      error: e.code === "chain_disabled" ? "Blockchain anchoring is not enabled. Signing and saved agreements remain available." : "Cannot connect to the configured blockchain. Check the server RPC and registry configuration." }; }
     res.json({ chain, esign: { active: getProvider().name, providers: PROVIDERS }, lifecycle: svc.LIFECYCLE, manual: svc.MANUAL,
-      storage: { kind: process.env.AWS_S3_BUCKET ? "AWS S3 (versioned, Object Lock)" : "Local write-once store (S3 stand-in)" } });
+      storage: { kind: deps().store.kind || "Write-once document store" } });
   }));
 
   // Hash-only verification: the browser computes SHA-256 locally, the file never leaves the device
@@ -69,7 +100,7 @@ export default function contractsModule({ notifier, contractDeps }) {
 
   r.get("/:id", wrap(async (req, res) => {
     const a = await svc.loadFor(req.params.id, req.auth, { read: true });
-    res.json({ ...svc.publicView(a), myRole: req.auth.role });
+    res.json(view(a, req.auth));
   }));
 
   r.get("/:id/audit", wrap(async (req, res) => {
@@ -88,12 +119,12 @@ export default function contractsModule({ notifier, contractDeps }) {
     res.send(buf);
   }));
 
-  const mutate = (fn) => wrap(async (req, res) => {
-    const a = await svc.loadFor(req.params.id, req.auth);
+  const mutate = (fn, witness = false) => wrap(async (req, res) => {
+    const a = await svc.loadFor(req.params.id, req.auth, { witness });
     const out = await fn(a, req);
     await a.save();
     notifier.changed("contracts");
-    res.json({ ...svc.publicView(a), myRole: req.auth.role, ...(out && typeof out === "object" ? { result: out } : {}) });
+    res.json({ ...view(a, req.auth), ...(out && typeof out === "object" ? { result: out } : {}) });
   });
 
   r.put("/:id/terms", mutate(async (a, req) => {
@@ -103,19 +134,26 @@ export default function contractsModule({ notifier, contractDeps }) {
 
   r.post("/:id/send", mutate(async (a, req) => {
     const put = await svc.sendForSignature(a, req.auth, deps().store);
-    await notify([a.buyer, a.farmer], "contract_sign_request", a);
+    await notify(a.signers.map(s => s.user), "contract_sign_request", a);
     return { draftSha256: put.sha256 };
   }));
 
-  r.post("/:id/sign/start", mutate((a, req) => svc.startIdentity(a, req.auth)));
-  r.post("/:id/sign/verify", mutate((a, req) => svc.verifyIdentity(a, req.auth, z.object({ otp: z.string() }).parse(req.body).otp)));
+  r.post("/:id/sign/start", mutate((a, req) => svc.startIdentity(a, req.auth), true));
+  r.post("/:id/sign/verify", mutate((a, req) => svc.verifyIdentity(a, req.auth, z.object({ otp: z.string() }).parse(req.body).otp), true));
   r.post("/:id/sign", mutate(async (a, req) => {
     const body = z.object({
       type: z.enum(["typed", "drawn"]), typedName: z.string().optional(), image: z.string().optional(), consent: z.literal(true),
     }).parse(req.body);
-    await svc.sign(a, req.auth, body, meta(req), { ...deps(), onRegistered, onSigned: async (signed) => { if (signed.version === 1 && signed.bond) await activateClaim(signed.bond); notifier.changed("bonds", "requirements", "contracts"); } });
-    if (a.status === "pending_signature") await notify([other(a, req.auth.role)], "contract_signed_by", a, { by: req.auth.role });
-  }));
+    await svc.sign(a, req.auth, body, meta(req), { ...deps(), onRegistered, onSigned: async (signed) => {
+      if (signed.version === 1 && signed.bond) await activateClaim(signed.bond);
+      if (signed.version === 1 && signed.module2?.status !== "handed_over") await handoff(signed);
+      notifier.changed("bonds", "requirements", "contracts", "farmops");
+    } });
+    if (a.status === "pending_signature") {
+      await notify(a.signers.filter(s => String(s.user) !== req.auth.id).map(s => s.user), "contract_signed_by", a, { by: signerFor(a, req.auth)?.role });
+      if (witnessReady(a)) await notify(a.signers.filter(s => s.role === "witness").map(s => s.user), "contract_witness_ready", a);
+    }
+  }, true));
   r.post("/:id/decline", mutate(async (a, req) => {
     svc.decline(a, req.auth, req.body?.reason);
     if (a.bond && a.version === 1) { await releaseClaim(a.bond); a.status = "cancelled"; }
@@ -128,7 +166,7 @@ export default function contractsModule({ notifier, contractDeps }) {
     await svc.registerOnChain(a, signed, { ...deps(), onRegistered });
   }));
   r.post("/:id/handoff", mutate(async (a) => {
-    if (a.chain?.status !== "registered" && !a.history.length) throw new HttpError(409, "Register the agreement first", "not_registered");
+    if (!a.documents.some(d => d.kind === "signed") || !a.signers.every(s => s.status === "signed")) throw new HttpError(409, "Complete all signatures first", "not_signed");
     await handoff(a);
   }));
   r.post("/:id/amend", mutate(async (a, req) => {

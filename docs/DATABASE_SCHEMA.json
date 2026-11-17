@@ -75,6 +75,14 @@
         "required": false,
         "ref": "User"
       },
+      "transcript": {
+        "type": "String",
+        "required": false
+      },
+      "demoVoice": {
+        "type": "Boolean",
+        "required": false
+      },
       "expiresAt": {
         "type": "Date",
         "required": false
@@ -95,6 +103,399 @@
         }
       ]
     ]
+  },
+  {
+    "collection": "pilotdeals",
+    "model": "PilotDeal",
+    "fields": {
+      "_id": {
+        "type": "String",
+        "required": false
+      },
+      "version": {
+        "type": "Number",
+        "required": false
+      },
+      "escrow": {
+        "type": "Mixed",
+        "required": false
+      },
+      "delivery": {
+        "type": "Mixed",
+        "required": false
+      },
+      "createdAt": {
+        "type": "Date",
+        "required": false
+      },
+      "updatedAt": {
+        "type": "Date",
+        "required": false
+      },
+      "__v": {
+        "type": "Number",
+        "required": false
+      }
+    },
+    "indexes": []
+  },
+  {
+    "collection": "photoreviews",
+    "model": "PhotoReview",
+    "fields": {
+      "agreementId": {
+        "type": "String",
+        "required": false
+      },
+      "version": {
+        "type": "Number",
+        "required": false
+      },
+      "farmer": {
+        "type": "ObjectId",
+        "required": false
+      },
+      "image": {
+        "type": "String",
+        "required": false
+      },
+      "imageHash": {
+        "type": "String",
+        "required": false
+      },
+      "analysis": {
+        "type": "Mixed",
+        "required": false
+      },
+      "simulated": {
+        "type": "Boolean",
+        "required": false
+      },
+      "status": {
+        "type": "String",
+        "required": false
+      },
+      "grade": {
+        "type": "String",
+        "required": false
+      },
+      "reviewedBy": {
+        "type": "ObjectId",
+        "required": false
+      },
+      "reviewedAt": {
+        "type": "Date",
+        "required": false
+      },
+      "note": {
+        "type": "String",
+        "required": false
+      },
+      "_id": {
+        "type": "ObjectId",
+        "required": false
+      },
+      "createdAt": {
+        "type": "Date",
+        "required": false
+      },
+      "updatedAt": {
+        "type": "Date",
+        "required": false
+      },
+      "__v": {
+        "type": "Number",
+        "required": false
+      }
+    },
+    "indexes": [
+      [
+        {
+          "agreementId": 1
+        },
+        {
+          "background": true
+        }
+      ]
+    ]
+  },
+  {
+    "collection": "trainingexamples",
+    "model": "TrainingExample",
+    "fields": {
+      "_id": {
+        "type": "String",
+        "required": false
+      },
+      "crop": {
+        "type": "String",
+        "required": false
+      },
+      "features": {
+        "type": "Array",
+        "required": false
+      },
+      "grade": {
+        "type": "String",
+        "required": false
+      },
+      "review": {
+        "type": "ObjectId",
+        "required": false
+      },
+      "confirmedBy": {
+        "type": "ObjectId",
+        "required": false
+      },
+      "createdAt": {
+        "type": "Date",
+        "required": false
+      },
+      "updatedAt": {
+        "type": "Date",
+        "required": false
+      },
+      "__v": {
+        "type": "Number",
+        "required": false
+      }
+    },
+    "indexes": []
+  },
+  {
+    "collection": "visionmodels",
+    "model": "VisionModel",
+    "fields": {
+      "_id": {
+        "type": "String",
+        "required": false
+      },
+      "revision": {
+        "type": "Number",
+        "required": false
+      },
+      "examples": {
+        "type": "Number",
+        "required": false
+      },
+      "centroids": {
+        "type": "Mixed",
+        "required": false
+      },
+      "trainedAt": {
+        "type": "Date",
+        "required": false
+      },
+      "createdAt": {
+        "type": "Date",
+        "required": false
+      },
+      "updatedAt": {
+        "type": "Date",
+        "required": false
+      },
+      "__v": {
+        "type": "Number",
+        "required": false
+      }
+    },
+    "indexes": []
+  },
+  {
+    "collection": "deliveryratings",
+    "model": "DeliveryRating",
+    "fields": {
+      "agreementId": {
+        "type": "String",
+        "required": false
+      },
+      "version": {
+        "type": "Number",
+        "required": false
+      },
+      "from": {
+        "type": "ObjectId",
+        "required": false
+      },
+      "to": {
+        "type": "ObjectId",
+        "required": false
+      },
+      "side": {
+        "type": "String",
+        "required": false
+      },
+      "quality": {
+        "type": "Number",
+        "required": false
+      },
+      "reliability": {
+        "type": "Number",
+        "required": false
+      },
+      "communication": {
+        "type": "Number",
+        "required": false
+      },
+      "score": {
+        "type": "Number",
+        "required": false
+      },
+      "note": {
+        "type": "String",
+        "required": false
+      },
+      "simulated": {
+        "type": "Boolean",
+        "required": false
+      },
+      "_id": {
+        "type": "ObjectId",
+        "required": false
+      },
+      "createdAt": {
+        "type": "Date",
+        "required": false
+      },
+      "updatedAt": {
+        "type": "Date",
+        "required": false
+      },
+      "__v": {
+        "type": "Number",
+        "required": false
+      }
+    },
+    "indexes": [
+      [
+        {
+          "to": 1
+        },
+        {
+          "background": true
+        }
+      ],
+      [
+        {
+          "agreementId": 1,
+          "version": 1,
+          "from": 1
+        },
+        {
+          "unique": true,
+          "background": true
+        }
+      ]
+    ]
+  },
+  {
+    "collection": "allocationapplications",
+    "model": "AllocationApplication",
+    "fields": {
+      "requirement": {
+        "type": "ObjectId",
+        "required": false
+      },
+      "farmer": {
+        "type": "ObjectId",
+        "required": false
+      },
+      "tons": {
+        "type": "Number",
+        "required": false
+      },
+      "status": {
+        "type": "String",
+        "required": false
+      },
+      "agreementId": {
+        "type": "String",
+        "required": false
+      },
+      "_id": {
+        "type": "ObjectId",
+        "required": false
+      },
+      "createdAt": {
+        "type": "Date",
+        "required": false
+      },
+      "updatedAt": {
+        "type": "Date",
+        "required": false
+      },
+      "__v": {
+        "type": "Number",
+        "required": false
+      }
+    },
+    "indexes": [
+      [
+        {
+          "requirement": 1
+        },
+        {
+          "background": true
+        }
+      ],
+      [
+        {
+          "requirement": 1,
+          "farmer": 1
+        },
+        {
+          "unique": true,
+          "background": true
+        }
+      ]
+    ]
+  },
+  {
+    "collection": "demoanchors",
+    "model": "DemoAnchor",
+    "fields": {
+      "_id": {
+        "type": "String",
+        "required": false
+      },
+      "agreementId": {
+        "type": "String",
+        "required": false
+      },
+      "version": {
+        "type": "Number",
+        "required": false
+      },
+      "docHash": {
+        "type": "String",
+        "required": false
+      },
+      "previousHash": {
+        "type": "String",
+        "required": false
+      },
+      "proofHash": {
+        "type": "String",
+        "required": false
+      },
+      "recordedBy": {
+        "type": "ObjectId",
+        "required": false
+      },
+      "createdAt": {
+        "type": "Date",
+        "required": false
+      },
+      "updatedAt": {
+        "type": "Date",
+        "required": false
+      },
+      "__v": {
+        "type": "Number",
+        "required": false
+      }
+    },
+    "indexes": []
   },
   {
     "collection": "users",
@@ -135,6 +536,15 @@
         "required": false
       },
       "company": {
+        "type": "String",
+        "required": false
+      },
+      "fpoOfficer": {
+        "type": "ObjectId",
+        "required": false,
+        "ref": "User"
+      },
+      "officerFpoId": {
         "type": "String",
         "required": false
       },
@@ -284,6 +694,14 @@
         "type": "Number",
         "required": false
       },
+      "allocationMode": {
+        "type": "String",
+        "required": false,
+        "enum": [
+          "fcfs",
+          "rating"
+        ]
+      },
       "_id": {
         "type": "ObjectId",
         "required": false
@@ -432,6 +850,10 @@
         "type": "ObjectId",
         "required": true,
         "ref": "User"
+      },
+      "witnessRequired": {
+        "type": "Boolean",
+        "required": false
       },
       "version": {
         "type": "Number",
@@ -1437,6 +1859,41 @@
       "updatedBy": {
         "type": "String",
         "required": false
+      },
+      "createdAt": {
+        "type": "Date",
+        "required": false
+      },
+      "updatedAt": {
+        "type": "Date",
+        "required": false
+      },
+      "__v": {
+        "type": "Number",
+        "required": false
+      }
+    },
+    "indexes": []
+  },
+  {
+    "collection": "agreementdocuments",
+    "model": "AgreementDocument",
+    "fields": {
+      "_id": {
+        "type": "String",
+        "required": false
+      },
+      "data": {
+        "type": "Buffer",
+        "required": true
+      },
+      "sha256": {
+        "type": "String",
+        "required": true
+      },
+      "size": {
+        "type": "Number",
+        "required": true
       },
       "createdAt": {
         "type": "Date",

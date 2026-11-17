@@ -16,7 +16,7 @@ function builtin() {
   return {
     id: "builtin",
     name: "AgriLink Sign",
-    legalNote: "Signed with mobile OTP identity check and explicit consent. Zoho Sign / DocuSign can be used as the provider (IT Act 2000 / ETA Singapore compliant).",
+    legalNote: "Prototype signing with a configured demo OTP and explicit consent. No SMS identity verification is performed. Production identity verification and external e-signature providers require further integration.",
     startIdentity(signer) {
       // A real provider sends an SMS OTP here. Sandbox accepts the configured demo OTP.
       return { method: "mobile_otp", sentTo: signer.maskedMobile };
@@ -49,13 +49,12 @@ function notConfigured(id, name) {
 }
 
 export function getProvider() {
-  if (process.env.ZOHO_SIGN_CLIENT_ID && process.env.ZOHO_SIGN_REFRESH_TOKEN) return notConfigured("zoho", "Zoho Sign");
-  if (process.env.DOCUSIGN_INTEGRATION_KEY && process.env.DOCUSIGN_ACCOUNT_ID) return notConfigured("docusign", "DocuSign");
+  // Credentials alone cannot activate adapters that have not been implemented.
   return builtin();
 }
 
 export const PROVIDERS = [
   { id: "builtin", name: "AgriLink Sign", active: true },
-  { id: "zoho", name: "Zoho Sign", active: Boolean(process.env.ZOHO_SIGN_CLIENT_ID) },
-  { id: "docusign", name: "DocuSign", active: Boolean(process.env.DOCUSIGN_INTEGRATION_KEY) },
+  { id: "zoho", name: "Zoho Sign (planned)", active: false },
+  { id: "docusign", name: "DocuSign (planned)", active: false },
 ];

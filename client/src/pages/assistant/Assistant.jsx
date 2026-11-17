@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { api, getToken } from "../../api.js";
 import Icon from "../../components/Icon.jsx";
-import WhatsAppButton from "../../components/WhatsAppButton.jsx";
+import TelegramButton from "../../components/TelegramButton.jsx";
+import VoiceNote from "../../components/VoiceNote.jsx";
 import { useI18n } from "../../i18n/index.jsx";
 import "./assistant.css";
 
 /** "Mitra" — farmer chat assistant. Type or speak; replies can be read aloud. */
-const SPEECH = { en: "en-IN", hi: "hi-IN", mr: "mr-IN", gu: "gu-IN", ta: "ta-IN", te: "te-IN", kn: "kn-IN" };
+const SPEECH = { en: "en-IN", hi: "hi-IN", pa: "pa-IN", mr: "mr-IN", gu: "gu-IN", ta: "ta-IN", te: "te-IN", kn: "kn-IN" };
 const S = {
   en: { title: "Mitra", sub: "Your farm friend", hi: "Hi! Ask me anything about your mangoes. Tap the mic to speak.", ph: "Type or tap the mic…", listening: "Listening…", basic: "Basic mode", voiceOn: "Voice on", voiceOff: "Voice off", err: "Couldn't reach me. Check internet and try again.", q: ["What should I do today?", "Will it rain?", "When is my harvest?", "How is my mango quality?"] },
   hi: { title: "मित्र", sub: "आपका खेती साथी", hi: "नमस्ते! आम के बारे में कुछ भी पूछिए। बोलने के लिए माइक दबाएँ।", ph: "लिखें या माइक दबाएँ…", listening: "सुन रहा हूँ…", basic: "सामान्य मोड", voiceOn: "आवाज़ चालू", voiceOff: "आवाज़ बंद", err: "जुड़ नहीं पाया। इंटरनेट देखकर फिर कोशिश करें।", q: ["आज क्या करूँ?", "बारिश होगी?", "कटाई कब है?", "मेरे आम की गुणवत्ता कैसी है?"] },
@@ -38,9 +39,11 @@ export function Chat({ compact = false, onNavigate }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [listening, setListening] = useState(false);
+  const [speechLanguage, setSpeechLanguage] = useState(lang);
   const [voice, setVoice] = useState(() => { try { return localStorage.getItem("agrilink_voice") !== "off"; } catch { return true; } });
   const [mode, setMode] = useState(null);
   const [links, setLinks] = useState([]);
+  const [sources, setSources] = useState([]);
   const end = useRef(null), rec = useRef(null);
 
   useEffect(() => { try { sessionStorage.setItem(STORE, JSON.stringify(msgs.slice(-30))); } catch { /* ignore */ } end.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [msgs, busy]);
@@ -50,7 +53,7 @@ export function Chat({ compact = false, onNavigate }) {
     const content = (q ?? text).trim();
     if (!content || busy) return;
     const next = [...msgs, { role: "user", content }];
-    setMsgs(next); setText(""); setBusy(true); setLinks([]);
+    setMsgs(next); setText(""); setBusy(true); setLinks([]); setSources([]);
     try {
       const res = await fetch("/api/assistant/stream", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${getToken()}` },
         body: JSON.stringify({ lang, messages: next.filter((m) => !m.error).map(({ role, content: c }) => ({ role, content: c })) }) });
@@ -76,7 +79,7 @@ export function Chat({ compact = false, onNavigate }) {
       if (!final) throw new Error("incomplete");
       if (started) setMsgs((m) => m.map((x, k) => (k === m.length - 1 ? { ...x, content: final.reply, lang: final.lang } : x)));
       else setMsgs((m) => [...m, { role: "assistant", content: final.reply, lang: final.lang }]);
-      setMode(final.mode); setLinks(final.links || []);
+      setMode(final.mode); setLinks(final.links || []); setSources(final.sources || []);
       if (voice) say(final.reply, final.lang || lang);
     } catch {
       setMsgs((m) => [...m, { role: "assistant", content: s.err, error: true }]);
@@ -86,7 +89,7 @@ export function Chat({ compact = false, onNavigate }) {
   const mic = () => {
     if (listening) { rec.current?.stop(); return; }
     const r = new Recognition();
-    r.lang = SPEECH[lang] || "en-IN"; r.interimResults = true; r.maxAlternatives = 1;
+    r.lang = SPEECH[speechLanguage] || "en-IN"; r.interimResults = true; r.maxAlternatives = 1;
     let final = "";
     r.onresult = (e) => { const t = [...e.results].map((x) => x[0].transcript).join(""); setText(t); if (e.results[e.results.length - 1].isFinal) final = t; };
     r.onend = () => { setListening(false); if (final.trim()) send(final); };
@@ -102,7 +105,7 @@ export function Chat({ compact = false, onNavigate }) {
       <div className="chat-head">
         <span className="chat-av"><Icon name="leaf" size={20} /></span>
         <div style={{ flex: 1 }}><b>{s.title}</b><div className="chat-sub">{s.sub}</div></div>
-        {!compact && <WhatsAppButton className="small" label="WhatsApp" />}
+        {!compact && <TelegramButton className="small" label="Telegram" />}
         <button className="chat-icon" onClick={toggleVoice} title={voice ? s.voiceOn : s.voiceOff} aria-label={voice ? s.voiceOn : s.voiceOff}>
           <Icon name={voice ? "volume" : "x"} size={18} />
         </button>
@@ -118,10 +121,12 @@ export function Chat({ compact = false, onNavigate }) {
         ))}
         {busy && <div className="bub bot typing"><i /><i /><i /></div>}
         {!busy && links.length > 0 && <div className="chat-links">{links.map((l) => <Link key={l.to} to={l.to} onClick={onNavigate}>{l.label}<Icon name="arrowRight" size={13} /></Link>)}</div>}
+        {!busy && sources.length > 0 && <details style={{ padding: 10, fontSize: 12 }}><summary>Reference sources for this reply</summary>{sources.map(source => <p key={source.id}>[{source.id}] {source.title}</p>)}<p>Curated prototype guidance and your own records. Ask your farmer doctor to confirm treatment decisions.</p></details>}
         {!msgs.length && <div className="chat-quick">{s.q.map((q) => <button key={q} onClick={() => send(q)}>{q}</button>)}</div>}
         <div ref={end} />
       </div>
 
+      {!compact && <VoiceNote onTranscript={setText} onLanguage={value => setSpeechLanguage(value || lang)} disabled={busy} />}
       <form className="chat-input" onSubmit={(e) => { e.preventDefault(); send(); }}>
         {Recognition && <button type="button" className={`chat-mic ${listening ? "on" : ""}`} onClick={mic} aria-label="Speak"><Icon name={listening ? "stop" : "mic"} size={22} /></button>}
         <input value={text} onChange={(e) => setText(e.target.value)} placeholder={listening ? s.listening : s.ph} maxLength={1500} />

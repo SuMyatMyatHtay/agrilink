@@ -26,7 +26,7 @@ export default function FarmerView() {
                 : `Thank you, ${last.check.photos.length} photo(s) received. Your farmer doctor will confirm the grade.`}
               {last.check.cv?.notes?.length > 0 && <ul className="m2-small" style={{ margin: '6px 0 0', paddingLeft: 18 }}>
                 {last.check.cv.notes.map((n) => <li key={n}>{n}</li>)}</ul>}</Banner>}
-            {v.prompts.length === 0 ? <Empty title="No photo check due">You will get an SMS or WhatsApp message when the next one is due.</Empty>
+            {v.prompts.length === 0 ? <Empty title="No photo check due">Check this page for new photo prompts. Your FPO officer can also follow up with you.</Empty>
               : v.prompts.map((p) => <Prompt key={p.check_id} p={p} now={meta?.now} profiles={meta?.cv_profiles || []} onDone={setLast} />)}
             {v.recent.length > 0 && (
               <section>
@@ -37,7 +37,8 @@ export default function FarmerView() {
               </section>)}
             {v.messages.length > 0 && (
               <section>
-                <h2 style={{ marginBottom: 8 }}>Messages (SMS / WhatsApp)</h2>
+                <h2 style={{ marginBottom: 8 }}>Workflow message log <Sim /></h2>
+                <p className="m2-small m2-muted">These demo channel entries do not confirm delivery to a phone. Linked Telegram notifications are tracked separately in AgriLink.</p>
                 <div className="m2-stack" style={{ gap: 8 }}>{v.messages.map((m, i) => (
                   <div key={i} className="m2-prompt"><div className="m2-small m2-muted">{fmtDateTime(m.at)} · {m.channel}</div>
                     <strong>{m.subject}</strong><div className="m2-small">{m.body}</div></div>))}</div>
@@ -55,10 +56,13 @@ function Prompt({ p, now, profiles, onDone }) {
   const [files, setFiles] = useState([])
   const [profile, setProfile] = useState('')
   const submit = async () => {
-    const fd = new FormData()
-    files.forEach((f) => fd.append('photos', f))
-    if (profile) fd.append('simulation_profile', profile)
-    const r = await run(() => api.upload(`/quality-checks/${p.check_id}/photos`, fd), 'Photos sent')
+    const r = await run(async () => {
+      const {compactPhoto} = await import('../photos.js')
+      const fd = new FormData()
+      for (const file of files) fd.append('photos', await compactPhoto(file))
+      if (profile) fd.append('simulation_profile', profile)
+      return api.upload(`/quality-checks/${p.check_id}/photos`, fd)
+    }, 'Photos sent')
     if (r) { onDone(r); setFiles([]) }
   }
   return (

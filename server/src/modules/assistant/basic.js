@@ -201,6 +201,7 @@ function summary(ctx, t, x) {
 /** Language the farmer actually wrote in (script, or common romanized Hindi/Marathi words); falls back to their setting. */
 export function detectLang(text, fallback = "en") {
   const q = text || "";
+  if (/[\u0a00-\u0a7f]/.test(q)) return "pa";
   if (/[஀-௿]/.test(q)) return "ta";
   if (/[ఀ-౿]/.test(q)) return "te";
   if (/[ಀ-೿]/.test(q)) return "kn";

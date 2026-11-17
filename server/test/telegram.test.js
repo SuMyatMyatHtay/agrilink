@@ -63,6 +63,12 @@ test("Telegram: authenticated single-use linking, secret validation, commands, n
     await Requirement.create({ buyer: buyer._id, buyerName: buyer.company, grade: "A", tons: 10, filled: 1, reserved: 2, priceUsd: 5, deliverBy: new Date() });
     await webhook(payload("/requests")); assert.match(sent.at(-1).text, /7 t available/); assert.match(sent.at(-1).text, /farmer\/offers\?requirement=/);
     await webhook(payload("How should I harvest?")); assert.equal(sent.at(-1).text, "Mitra test response");
+    let downloads = 0;
+    telegram.speech = { fetchImpl: async () => ++downloads % 2 ? Response.json({ ok: true, result: { file_path: "voice/test.oga", file_size: 5 } }) : new Response(Buffer.from("audio")),
+      transcribe: async () => ({ text: "How should I irrigate?" }) };
+    const voiceUpdate = payload(""); voiceUpdate.message.voice = { file_id: "voice-file", duration: 4, file_size: 5 };
+    assert.equal((await webhook(voiceUpdate)).status, 200); assert.match(sent.at(-1).text, /I heard: How should I irrigate/);
+    const afterVoice = sent.length; await webhook(voiceUpdate); assert.equal(sent.length, afterVoice); assert.equal(downloads, 2);
     await webhook(payload("/stop")); assert.equal((await User.findById(farmer._id)).telegramEnabled, false);
     assert.equal((await messenger.dispatch(farmer._id, "new_requirement", { buyer: "Buyer", grade: "A", tons: "2", price: "5", url: "https://agrilink.example" })).length, 0);
     await webhook(payload("/subscribe")); assert.equal((await User.findById(farmer._id)).telegramEnabled, true);

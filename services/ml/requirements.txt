@@ -11,3 +11,5 @@ python-multipart>=0.0.9
 opencv-python-headless>=4.9
 Pillow>=10.3
 scikit-image>=0.23
+pymongo>=4.6
+segno>=1.6

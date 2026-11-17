@@ -30,7 +30,7 @@ export default function Sign() {
   const { id } = useParams();
   const nav = useNavigate();
   const toast = useToast();
-  const r = useApi(`/contracts/${id}`);
+  const r = useApi(`/contracts/${id}`, { refreshMs: 15000 });
   const meta = useApi("/contracts/meta").data;
   const [step, setStep] = useState(1);
   const [pdf, setPdf] = useState(null);
@@ -50,8 +50,8 @@ export default function Sign() {
   if (r.loading && !a) return <Loading />;
   if (!a) return <ErrorBox error={r.error} />;
   const me = a.signers.find((s) => s.role === a.myRole);
-  if (!final && (a.status !== "pending_signature" || me.status === "signed")) {
-    return <div className="card"><p>{me.status === "signed" ? "You have already signed this agreement." : "This agreement is not awaiting your signature."}</p><Link to={`/contracts/${id}`}>Back to agreement</Link></div>;
+  if (!final && (!me || a.status !== "pending_signature" || me?.status === "signed" || (a.myRole === "witness" && !a.witnessReady))) {
+    return <div className="card"><p>{me?.status === "signed" ? "You have already signed this agreement." : "This agreement is not awaiting your signature."}</p><Link to={`/contracts/${id}`}>Back to agreement</Link></div>;
   }
   const call = async (path, body) => { setBusy(true); try { return await api(`/contracts/${id}${path}`, { method: "POST", body }); } catch (e) { toast(e.message || "Failed"); throw e; } finally { setBusy(false); } };
   const sendOtp = async () => { const out = await call("/sign/start"); setOtpSent(out.result || {}); };
@@ -66,7 +66,7 @@ export default function Sign() {
     <>
       <Link to={`/contracts/${id}`} className="linkbtn" style={{ textDecoration: "none" }}><Icon name="arrowLeft" size={16} />Back to agreement</Link>
       <div className="page-head" style={{ marginTop: 6 }}>
-        <div><h2>Sign {a.agreementId}</h2><p className="sub">Signing as <b>{me.name}</b> ({me.role === "buyer" ? "Buyer" : "Farmer / FPO"}) · {usd(a.terms.totalValueUsd)} · provider: {meta?.esign?.active}</p></div>
+        <div><h2>Sign {a.agreementId}</h2><p className="sub">Signing as <b>{me.name}</b> ({me.role === "buyer" ? "Buyer" : me.role === "witness" ? "FPO witness" : "Farmer / FPO"}) · {usd(a.terms.totalValueUsd)} · provider: {meta?.esign?.active}</p></div>
       </div>
       <div className="steps">{STEPS.map((l, i) => <div key={l} className={`st ${step === i + 1 ? "on" : step > i + 1 ? "ok" : ""}`}><b>{step > i + 1 ? "✓" : i + 1}</b>{l}</div>)}</div>
 
@@ -84,7 +84,7 @@ export default function Sign() {
                 <dt>Version</dt><dd>{a.version}{a.amendmentOf ? ` (amends v${a.amendmentOf})` : ""}</dd>
                 <dt>Quantity / price</dt><dd>{a.terms.quantityTons} t · {usd(a.terms.priceUsdPerKg)}/kg</dd>
               </dl>
-              <p className="note">Your signature commits to this exact file. Any later change requires a new version signed by both parties.</p>
+              <p className="note">Your signature commits to this exact file. Any later change requires a new version signed again by all required signatories.</p>
               <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontWeight: 400 }}><input type="checkbox" style={{ width: "auto", marginTop: 3 }} checked={read} onChange={(e) => setRead(e.target.checked)} />I have read the full agreement.</label>
               <button className="btn cyan" style={{ width: "100%", marginTop: 12 }} disabled={!read} onClick={() => setStep(2)}>Continue to identity check</button>
             </div>
@@ -96,10 +96,10 @@ export default function Sign() {
       {step === 2 && (
         <div className="card" style={{ maxWidth: 520 }}>
           <h3><Icon name="phone" />Verify your identity</h3>
-          <p className="note">A one-time password is sent to your registered mobile {me.maskedMobile}. The verification is recorded on the signature certificate.</p>
+          <p className="note">This prototype uses the configured demo OTP; no SMS is sent. The check is recorded on the signature certificate.</p>
           {!otpSent ? <button className="btn" disabled={busy} onClick={sendOtp}>Send OTP</button> : (
             <>
-              <p className="insight">OTP sent to {otpSent.sentTo}{otpSent.hint ? ` · ${otpSent.hint}` : ""}</p>
+              <p className="insight">Demo identity check ready for {otpSent.sentTo}{otpSent.hint ? ` · ${otpSent.hint}` : ""}</p>
               <label>One-time password</label>
               <input inputMode="numeric" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="••••" />
               <div className="mrow"><button className="btn alt" disabled={busy} onClick={sendOtp}>Resend</button><button className="btn cyan" disabled={busy || otp.length < 4} onClick={verify}>Verify</button></div>
@@ -118,7 +118,7 @@ export default function Sign() {
           </>) : <SignaturePad onChange={setImage} />}
           <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontWeight: 400, marginTop: 16 }}>
             <input type="checkbox" style={{ width: "auto", marginTop: 3 }} checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-            I agree to sign this agreement electronically. I understand my electronic signature is legally binding, and that the signed document's hash will be recorded on a public blockchain.
+            I have reviewed this agreement and consent to record my electronic signature. If signing as the FPO witness, I confirm the farmer's affiliation with my FPO. Blockchain anchoring is available when configured.
           </label>
           <button className="btn cyan" style={{ width: "100%", marginTop: 14 }} disabled={busy || !consent || (mode === "typed" ? typed.trim().length < 3 : !image)} onClick={sign}>{busy ? "Signing…" : "Sign agreement"}</button>
         </div>
@@ -142,7 +142,7 @@ export default function Sign() {
                   <dt>Block</dt><dd>{final.chain.blockNumber}</dd>
                 </dl>
               </div>
-            ) : <p className="insight">Waiting for the other party to sign. You will be notified, and the signed PDF will be registered on the blockchain automatically.</p>}
+            ) : <p className="insight">{final.status === "pending_signature" ? "Signature saved. Waiting for the remaining signatories, including the assigned FPO witness." : "All required signatures are saved. The signed PDF is available; check Blockchain status for anchoring availability."}</p>}
             <button className="btn" style={{ marginTop: 14 }} onClick={() => nav(`/contracts/${id}`)}>Open agreement</button>
           </div>
         );

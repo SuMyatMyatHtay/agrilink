@@ -1,5 +1,7 @@
 # Telegram bot foundation
 
+**Voice update:** short linked-account voice notes now download securely from Telegram, transcribe through a hosted Whisper-compatible API, and receive a text answer with the recognized question. Set server `SPEECH_API_KEY` (Groq), optionally `SPEECH_API_URL` and `SPEECH_MODEL`; see [MORNING_CHECKLIST.md](MORNING_CHECKLIST.md). Limit: 90 seconds and 2 MB. Audio is not stored; transcripts are retained with the existing seven-day webhook update record. Without a key the bot explains that voice setup is pending and text commands keep working. Retry deduplication reuses prepared replies/transcripts. Voice never executes account-management commands.
+
 Telegram replaces WhatsApp as the preferred channel. No WhatsApp Business account, approved templates or phone-number matching is required. Existing WhatsApp/SMS adapters remain available for legacy use, but `MESSAGING_CHANNELS=telegram` selects Telegram for normal farmer notifications.
 
 ## What is implemented
@@ -11,7 +13,7 @@ Telegram replaces WhatsApp as the preferred channel. No WhatsApp Business accoun
 - New-request and supported existing farmer notification events use Telegram for linked, subscribed farmers. No notification is sent to an unlinked chat. Pausing notifications does not disable manual chat commands.
 - Webhook secret verification, private-chat checks, persistent update deduplication, short processing leases, expiring link records and delivery-attempt logging are included. Group chats are ignored.
 - `simulated` means nothing was sent; `sent` means Telegram accepted the message. Telegram Bot API does not provide the same delivered/read receipts as the WhatsApp adapter, so those are not claimed.
-- Voice transcription, voice replies and direct in-chat claiming are not implemented by this foundation.
+- Voice transcription is implemented with a configured speech provider. Telegram replies remain text; voice replies and direct in-chat claiming are not implemented.
 
 ## Your setup steps
 

@@ -17,7 +17,7 @@ export default function TelegramConnect() {
   const s = status.data;
   return <section className="card" aria-labelledby="telegram-title">
     <h3 id="telegram-title">Telegram notifications &amp; Mitra chat</h3>
-    <p className="note">Get new buyer requests on Telegram and ask Mitra questions. Claims are confirmed securely in the AgriLink portal.</p>
+    <p className="note">Get new buyer requests on Telegram and ask Mitra questions. {s?.voiceMode === "demo" ? "Voice demo uses labelled placeholder text; audio is not transcribed." : s?.voiceConfigured ? "Short voice notes are transcribed and answered in text." : "Text chat is available when linked; voice notes need speech-provider setup."} Claims are confirmed in the AgriLink portal.</p>
     <ErrorBox error={error || status.error} />
     {!s ? <p className="note">Checking connection…</p> : !s.configured ? <p className="note">Telegram is not available yet. You will still receive notifications in AgriLink.</p> : <>
       {s.mode === "simulated" && <p className="insight">Demo mode: Telegram messages are simulated, not sent.</p>}

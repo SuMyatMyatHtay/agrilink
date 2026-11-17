@@ -1,4 +1,5 @@
 import "./modules/telegram/model.js";
+import "./modules/pilot/models.js";
 import mongoose from "mongoose";
 import { User } from "./modules/users/model.js";
 import { Requirement } from "./modules/requirements/model.js";

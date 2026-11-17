@@ -10,6 +10,7 @@ import { Bond } from "./model.js";
 import { makeSignature, verifyBond } from "./signing.js";
 import { precheck } from "./precheck.js";
 import { createFromBond } from "../contracts/service.js";
+import { Agreement } from "../contracts/model.js";
 
 const shortId = (b) => String(b._id).slice(-6);
 const otherParty = (b, role) => (role === "farmer" ? b.buyer : b.farmer);
@@ -57,6 +58,8 @@ export default function bondsModule({ notifier, ml, weather }) {
 
   r.post("/:id/sign", wrap(async (req, res) => {
     const bond = await mine(req);
+    const agreement = await Agreement.findOne({ bond: bond._id });
+    if (agreement?.witnessRequired !== false) throw new HttpError(409, "Open the digital agreement: buyer, farmer and assigned FPO witness signatures are required", "use_contract_signing");
     const side = req.auth.role;
     if (bond.status === "cancelled") throw new HttpError(409, "This claim was released", "claim_released");
     if (bond.sigs?.[side]?.hash) throw new HttpError(409, "Already signed", "already_signed");

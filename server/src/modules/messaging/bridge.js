@@ -14,10 +14,10 @@ const fmt = (d) => { const x = new Date(d); return Number.isNaN(+x) ? String(d) 
 
 export function bridgeNotifications(notifier, messenger) {
   notifier.subscribe?.(async (docs) => {
-    for (const n of docs) {
+    for (let offset = 0; offset < docs.length; offset += 4) await Promise.all(docs.slice(offset, offset + 4).map(async n => {
       try {
         const u = await User.findById(n.user).select("role lang mobile notify waLastInboundAt telegramChatId telegramEnabled");
-        if (u?.role !== "farmer") continue;
+        if (u?.role !== "farmer") return;
         const L = u.lang || "en", d = n.data || {};
         const map = {
           req_new: ["new_requirement", { buyer: d.buyer, grade: d.grade, tons: String(d.tons), price: String(d.offerUsd ?? ""), url: `${(process.env.PUBLIC_APP_URL || "http://localhost:5173").replace(/\/$/, "")}/farmer/offers?requirement=${d.reqId}` }],
@@ -30,7 +30,7 @@ export function bridgeNotifications(notifier, messenger) {
         }[n.type];
         if (map) await messenger.dispatch(u, map[0], map[1], { source: { kind: "notification", ref: String(n._id) }, dedupeKey: `n:${n._id}` });
       } catch (e) { console.warn("message bridge:", e.message); }
-    }
+    }));
   });
 }
 

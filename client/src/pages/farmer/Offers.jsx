@@ -23,21 +23,21 @@ function CommitModal({ offer, max, onClose, onDone }) {
     if (!(n > 0) || n > max) return setErr(t("over_commit", { max }));
     submitting.current = true; setBusy(true); setErr("");
     try {
-      const result = await api("/bonds", { method: "POST", body: { requirementId: offer._id, tons: n } });
+      const result = await api(offer.allocationMode === "rating" ? `/allocation/${offer._id}/apply` : "/bonds", { method: "POST", body: offer.allocationMode === "rating" ? { tons: n } : { requirementId: offer._id, tons: n } });
       onDone(result);
     } catch (e) {
-      setErr(e.code === "exceeds_capacity" ? t("over_commit", { max }) : e.code === "exceeds_need" ? t("err_exceeds_need") : t("err_generic"));
+      setErr(e.code === "exceeds_capacity" ? t("over_commit", { max }) : e.code === "exceeds_need" ? t("err_exceeds_need") : e.message || t("err_generic"));
     } finally { submitting.current = false; setBusy(false); }
   };
   return (
     <Modal onClose={() => { if (!busy) onClose(); }}>
       <p className="note">Commit to {offer.buyerName}: Grade {offer.grade}, USD {Number(offer.priceUsd).toFixed(2)}/kg.</p>
-      <p className="note">This creates a draft agreement for both parties to review. It does not sign the agreement.</p>
+      <p className="note">{offer.allocationMode === "rating" ? "This submits an application. The buyer awards using verified delivery ratings; quantity is reserved only on award." : "This reserves your quantity and creates a draft agreement for review. It does not sign the agreement."}</p>
       <h3>{t("commit_q", { max })}</h3>
       <input aria-label="Quantity to commit in metric tons" disabled={busy} type="number" step="0.1" min="0.1" max={max} value={v} onChange={(e) => setV(e.target.value)} autoFocus />
       {err && <p className="down" role="alert">{err}</p>}
       <PreSignCheck requirementId={offer._id} tons={parseFloat(v)} />
-      <div className="mrow"><button className="btn alt" disabled={busy} onClick={onClose}>{t("cancel")}</button><button className="btn" disabled={busy} onClick={submit}>{busy ? "Creating agreement…" : "Confirm commitment"}</button></div>
+      <div className="mrow"><button className="btn alt" disabled={busy} onClick={onClose}>{t("cancel")}</button><button className="btn" disabled={busy} onClick={submit}>{busy ? "Saving..." : offer.allocationMode === "rating" ? "Submit application" : "Confirm commitment"}</button></div>
     </Modal>
   );
 }
@@ -64,7 +64,7 @@ export default function Offers() {
     <>
       <h2>{t("offers_title")}</h2>
       <p className="sub">{t("offers_sub")}</p>
-      <p className="insight">First come, first served. A successful claim reserves your quantity immediately. Both parties review and sign the agreement next.</p>
+      <p className="insight">Standard requests are first come, first served: claiming reserves your quantity immediately. Rating-based requests accept applications; the buyer awards them using verified delivery ratings. All agreements need buyer, farmer and FPO witness signatures.</p>
       {target && offers.data && !offers.data.some((r) => r._id === target) && <p role="status" className="note">That request is no longer available or is outside your selected grade. Other open requests are shown below.</p>}
       {th && <p className="insight">{t("th_banner", { base: Math.round(th.baseline_kg), min: th.min_offer_usd.toFixed(2), target: th.target_offer_usd.toFixed(2) })}</p>}
       <div className="chips">
@@ -89,12 +89,12 @@ export default function Offers() {
           </div>}
           <OfferAdvice advice={r.advice} />
           <p className="note">{t("deliver_by")} {r.deliverBy.slice(0, 10)}{r.escalation?.enabled && ` · ${t("escalation", { p: r.escalation.pct })}`}</p>
-          <button className="btn" disabled={r.left <= 0 || sum.loading || !!sum.error} onClick={() => (free > 0 ? setPick(r) : toast(t("over_commit", { max: 0 })))}>Claim this request</button>
+          <button className="btn" disabled={r.left <= 0 || sum.loading || !!sum.error} onClick={() => (free > 0 ? setPick(r) : toast(t("over_commit", { max: 0 })))}>{r.allocationMode === "rating" ? "Apply for this request" : "Claim this request"}</button>
         </div>
       ))}
       </div>
       {pick && <CommitModal offer={pick} max={+Math.min(pick.left, free).toFixed(1)} onClose={() => setPick(null)}
-        onDone={(result) => { setPick(null); toast("Commitment saved. Review your draft agreement next."); nav(result.agreementId ? `/contracts/${result.agreementId}` : "/farmer/agreements"); }} />}
+        onDone={(result) => { setPick(null); if (!result.agreementId) { toast("Application submitted. The buyer will review the ranked applicants."); offers.reload(); return; } toast("Commitment saved. Review your draft agreement next."); nav(result.agreementId ? `/contracts/${result.agreementId}` : "/farmer/agreements"); }} />}
     </>
   );
 }

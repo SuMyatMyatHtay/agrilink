@@ -8,6 +8,8 @@ from app.modules.price import model as price
 from app.modules.cost import model as cost
 
 if __name__ == "__main__":
+    from bundle_farmops import bundle
+    bundle()
     for name, model in (("supply_demand", supply_demand), ("price", price), ("cost", cost)):
         model.train()
         if not model.ARTIFACT.is_file():

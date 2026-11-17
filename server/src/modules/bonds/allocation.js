@@ -6,12 +6,13 @@ import { Agreement, AgreementCounter } from "../contracts/model.js";
 import { expectedYield, committedTons } from "../farmers/service.js";
 import { createFromBond } from "../contracts/service.js";
 import { HttpError } from "../../lib/http.js";
+import { AllocationApplication, DeliveryRating } from "../pilot/models.js";
 
 export const availableTons = (r) => Math.max(0, +(r.tons - r.filled - (r.reserved || 0)).toFixed(1));
 
 // Run at startup for data created before reservations existed. Existing data is retained.
 export async function migrateReservations() {
-  await AgreementCounter.init();
+  await Promise.all([AgreementCounter.init(), AllocationApplication.init(), DeliveryRating.init()]);
   const legacy = await Requirement.find({ reserved: { $exists: false } }).select("_id").lean();
   for (const r of legacy) await mongoose.connection.transaction(async (session) => {
     const claims = await Bond.find({ requirement: r._id, status: { $nin: ["active", "cancelled"] } }).session(session);
@@ -20,11 +21,17 @@ export async function migrateReservations() {
   });
 }
 
-export async function claimRequirement(farmerId, requirementId, tons) {
+export async function claimRequirement(farmerId, requirementId, tons, { applicationId } = {}) {
   let result;
   for (let attempt = 0; ; attempt++) {
     try {
       await mongoose.connection.transaction(async (session) => {
+        const policy = await Requirement.findById(requirementId).session(session);
+        if (policy?.allocationMode === "rating") {
+          if (!applicationId) throw new HttpError(409, "Apply to this rated request; the buyer awards it using delivery ratings", "application_required");
+          const app = await AllocationApplication.findOneAndUpdate({ _id: applicationId, requirement: requirementId, farmer: farmerId, tons, status: "pending" }, { $set: { status: "awarded" } }, { new: true, session });
+          if (!app) throw new HttpError(409, "This application has already been awarded or is unavailable", "application_unavailable");
+        } else if (applicationId) throw new HttpError(409, "The allocation policy changed", "policy_changed");
         // Serialize claims from the same farmer, even against different requirements.
         const farmer = await User.findOneAndUpdate({ _id: farmerId, role: "farmer" }, { $inc: { allocationVersion: 1 } }, { new: true, session });
         if (!farmer?.farm) throw new HttpError(409, "Complete your farm profile first", "needs_onboarding");
@@ -32,7 +39,7 @@ export async function claimRequirement(farmerId, requirementId, tons) {
         if (tons > free) throw new HttpError(400, `Only ${free.toFixed(1)} t of your capacity is free`, "exceeds_capacity");
         const reqt = await Requirement.findOneAndUpdate({ _id: requirementId, $expr: {
           $gte: [{ $subtract: ["$tons", { $add: ["$filled", { $ifNull: ["$reserved", 0] }] }] }, tons],
-        } }, { $inc: { reserved: tons, interested: 1 } }, { new: true, session });
+        } }, { $inc: { reserved: tons, interested: applicationId ? 0 : 1 } }, { new: true, session });
         if (!reqt) throw new HttpError(409, "This quantity has already been claimed. Refresh to see what is still available.", "exceeds_need");
         const [bond] = await Bond.create([{
           requirement: reqt._id, buyer: reqt.buyer, farmer: farmer._id, buyerName: reqt.buyerName,
@@ -40,6 +47,7 @@ export async function claimRequirement(farmerId, requirementId, tons) {
           priceUsd: reqt.priceUsd, deliverBy: reqt.deliverBy, escalation: reqt.escalation, reservationHeld: true,
         }], { session });
         const agreement = await createFromBond(bond._id, session);
+        if (applicationId) await AllocationApplication.updateOne({ _id: applicationId }, { $set: { agreementId: agreement.agreementId } }, { session });
         result = { bond, agreement };
       });
       return result;

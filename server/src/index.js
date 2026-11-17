@@ -41,7 +41,7 @@ if (!chain.enabled) {
 import("./modules/module2/handoff.js").then(async ({ handToModule2 }) => {
   const { Agreement } = await import("./modules/contracts/model.js");
   const { appendAudit } = await import("./modules/contracts/audit.js");
-  const pending = await Agreement.find({ "chain.status": "registered", $or: [{ module2: null }, { "module2.status": "failed" }] });
+  const pending = await Agreement.find({ "documents.kind": "signed", status: { $in: ["signed", "registered", "in_progress", "completed"] }, $or: [{ module2: null }, { "module2.status": "failed" }] });
   for (const a of pending) {
     try { a.module2 = await handToModule2(a); } catch (e) { a.module2 = { status: "failed", at: new Date(), error: String(e.message).slice(0, 200) }; }
     a.markModified("module2");

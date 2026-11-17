@@ -6,6 +6,7 @@ import { createApp } from "../src/app.js";
 import { seedIfEmpty } from "../src/seed.js";
 import { createNotifier } from "../src/modules/notifications/notifier.js";
 import { runWeatherAlerts } from "../src/jobs/weatherAlerts.js";
+import { Agreement } from "../src/modules/contracts/model.js";
 
 const fakeMl = {
   price: async (grade = "A", district = "Sindhudurg") => ({
@@ -120,6 +121,9 @@ test("bond flow: capacity check, dual signing, activation, fill update, tamper d
   // second bond beyond remaining capacity is rejected
   assert.equal((await api("/bonds", { method: "POST", token: f.token, body: { requirementId: target._id, tons: 3 } })).body.error, "exceeds_capacity");
 
+  // Legacy signatures remain testable only for explicitly legacy agreements.
+  assert.equal((await api(`/bonds/${id}/sign`, { method: "POST", token: f.token })).body.error, "use_contract_signing");
+  await Agreement.updateOne({ bond: id }, { $set: { witnessRequired: false } });
   const fs = await api(`/bonds/${id}/sign`, { method: "POST", token: f.token });
   assert.equal(fs.body.status, "farmer_signed");
   assert.equal((await api(`/bonds/${id}/sign`, { method: "POST", token: f.token })).status, 409);
@@ -177,6 +181,7 @@ test("notifications: new requirement reaches farmers; bond events reach the othe
   assert.equal(nb.items[0].type, "bond_new");
   assert.equal(nb.items[0].data.tons, 2);
 
+  await Agreement.updateOne({ bond: bond._id }, { $set: { witnessRequired: false } });
   await api(`/bonds/${bond._id}/sign`, { method: "POST", token: b.token });
   assert.equal((await api("/notifications", { token: f.token })).body.items[0].type, "bond_signed");
   await api(`/bonds/${bond._id}/sign`, { method: "POST", token: f.token });

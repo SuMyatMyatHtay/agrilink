@@ -38,23 +38,25 @@ export default function Dashboard() {
   const nav = useNavigate();
   const [filter, setFilter] = useState("all");
   const [showNew, setShowNew] = useState(false);
-  const r = useApi("/contracts", { live: ["contracts", "bonds"] });
+  const r = useApi("/contracts", { live: ["contracts", "bonds"], refreshMs: 15000 });
   const meta = useApi("/contracts/meta").data;
   const d = r.data;
   const items = useMemo(() => (d?.items || []).filter((a) => filter === "all" || a.status === filter), [d, filter]);
   if (r.loading && !d) return <Loading />;
   if (!d) return <ErrorBox error={r.error} />;
   const s = d.stats;
+  const witnessTasks = d.items.filter(a => a.myRole === "witness" && a.status === "pending_signature" && a.witnessReady && a.signers.find(s => s.role === "witness")?.status !== "signed");
   const KPI = [
     ["file", "", "Total agreements", s.total, `${usd(s.contractValueUsd)} contract value`],
     ["pen", "amber", "Awaiting signatures", s.awaiting, "Sent, not yet signed by both"],
-    ["checkCircle", "", "Fully signed", s.signed, "Both parties signed"],
-    ["shield", "green", "Blockchain verified", s.verified, meta?.chain?.network || "Polygon PoS"],
+    ["checkCircle", "", "Fully signed", s.signed, "All required signatories signed"],
+    ["shield", "green", "Blockchain verified", s.verified, meta?.chain?.status === "disabled" ? "Anchoring not enabled" : meta?.chain?.network || "Awaiting network connection"],
     ["alert", "red", "Requires attention", s.attention, "Your signature, disputes, delivery due"],
   ];
 
   return (
     <>
+      {witnessTasks.length > 0 && <div className="insight" role="status"><b>{witnessTasks.length} agreement(s) ready for your FPO witness signature.</b> <Link to={`/contracts/${witnessTasks[0].agreementId}/sign`}>Review &amp; witness →</Link></div>}
       <div className="page-head">
         <div><h2>Agreements</h2><p className="sub">Review farmer commitments, confirm the terms, and sign your agreements.</p></div>
         <div className="page-actions">
@@ -95,7 +97,7 @@ export default function Dashboard() {
         <div>
           <div className="card chain-hero">
             <h3><Icon name="globe" />Network</h3>
-            {meta?.chain?.error ? <span className="seal bad"><Icon name="xCircle" size={16} />Blockchain node unreachable</span> : (
+            {meta?.chain?.error ? <div role="status"><span className={`badge ${meta.chain.status === "disabled" ? "b-draft" : "b-failed"}`}><Icon name={meta.chain.status === "disabled" ? "shield" : "alert"} size={16} /> {meta.chain.status === "disabled" ? "Blockchain not enabled" : "Network unavailable"}</span><p className="note" style={{ marginTop: 12 }}>{meta.chain.error}</p><Link to="/contracts/network">View network details →</Link></div> : (
               <dl className="kv" style={{ gridTemplateColumns: "1fr" }}>
                 <dt>Network</dt><dd>{meta?.chain?.network || "…"}</dd>
                 <dt>Registry contract</dt><dd><Hash value={meta?.chain?.contract} /></dd>

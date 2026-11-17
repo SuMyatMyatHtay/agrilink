@@ -9,6 +9,7 @@ import { Requirement } from "./model.js";
 
 const input = z.object({
   grade: z.enum(["A", "B", "C"]),
+  allocationMode: z.enum(["fcfs", "rating"]).default("fcfs"),
   tons: z.coerce.number().min(1),
   priceUsd: z.coerce.number().min(0.1),
   floorUsd: z.coerce.number().min(0).optional(),

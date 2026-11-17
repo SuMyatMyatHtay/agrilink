@@ -6,6 +6,7 @@ import { wrap, HttpError } from "../../lib/http.js";
 import { User } from "../users/model.js";
 import { createLink, disconnect, handleUpdate } from "./service.js";
 import { telegramEnabled, telegramMode, telegramProvider, botUsername } from "./provider.js";
+import { speechConfigured, speechMode } from "../assistant/speech.js";
 export default function telegramModule(deps) {
   const r = Router();
   r.get("/bot", (_req, res) => res.json({ link: telegramProvider().configured && botUsername() && process.env.TELEGRAM_WEBHOOK_SECRET ? `https://t.me/${botUsername()}` : null }));
@@ -24,7 +25,7 @@ export default function telegramModule(deps) {
   r.use(requireAuth("farmer"));
   r.get("/status", wrap(async (req, res) => {
     const user = await User.findById(req.auth.id).select("telegramChatId telegramEnabled");
-    res.json({ configured: telegramProvider().configured && !!botUsername() && !!process.env.TELEGRAM_WEBHOOK_SECRET, mode: telegramMode(), linked: !!user?.telegramChatId, notificationsEnabled: user?.telegramEnabled !== false, username: botUsername() || null });
+    res.json({ configured: telegramProvider().configured && !!botUsername() && !!process.env.TELEGRAM_WEBHOOK_SECRET, mode: telegramMode(), linked: !!user?.telegramChatId, notificationsEnabled: user?.telegramEnabled !== false, username: botUsername() || null, voiceConfigured: speechConfigured(), voiceMode: speechMode() });
   }));
   r.post("/link", wrap(async (req, res) => res.json(await createLink(req.auth.id))));
   r.patch("/preferences", wrap(async (req, res) => {

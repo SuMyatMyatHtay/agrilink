@@ -88,7 +88,7 @@ export function renderAgreementPdf(a, { signed = false, draftHash = null } = {})
     // signature blocks
     doc.moveDown(1);
     if (doc.y > doc.page.height - 190) doc.addPage();
-    const sy = doc.y;
+    let sy = doc.y;
     const sigBox = (x, label, signer) => {
       doc.roundedRect(x, sy, colW, 92, 6).strokeColor(LINE).stroke();
       doc.font("Helvetica-Bold").fontSize(8).fillColor(CYAN).text(label, x + 10, sy + 9);
@@ -111,6 +111,15 @@ export function renderAgreementPdf(a, { signed = false, draftHash = null } = {})
     sigBox(56, "SIGNED FOR THE BUYER", bySigner("buyer"));
     sigBox(56 + colW + 16, "SIGNED FOR THE SELLER (FARMER / FPO)", bySigner("farmer"));
     doc.y = sy + 104;
+    if (bySigner("witness")) {
+      doc.addPage();
+      doc.y = 64;
+      h(10, "FPO witness attestation");
+      p("The assigned FPO officer confirms that the farmer belongs to the stated FPO and that they reviewed the buyer and farmer agreement. This attestation does not guarantee payment or delivery and does not replace independent identity verification.");
+      sy = doc.y + 20;
+      sigBox(56, "COUNTERSIGNED BY THE ASSIGNED FPO WITNESS", bySigner("witness"));
+      doc.y = sy + 104;
+    }
 
     // certificate
     if (signed) {
@@ -123,14 +132,14 @@ export function renderAgreementPdf(a, { signed = false, draftHash = null } = {})
         ["Completed", ts(Math.max(...a.signers.map((x) => new Date(x.signature.signedAt).getTime())))]]);
       for (const sg of a.signers) {
         doc.moveDown(0.6);
-        doc.font("Helvetica-Bold").fontSize(10).fillColor(NAVY).text(`${sg.role === "buyer" ? "Buyer" : "Seller (Farmer / FPO)"} — ${sg.name}`);
+        doc.font("Helvetica-Bold").fontSize(10).fillColor(NAVY).text(`${sg.role === "buyer" ? "Buyer" : sg.role === "witness" ? "FPO witness" : "Seller (Farmer / FPO)"} — ${sg.name}`);
         doc.moveDown(0.2);
         kv([["Organisation", sg.organisation], ["Identity verification", `${sg.identity?.method === "mobile_otp" ? "Mobile OTP" : sg.identity?.method} to ${sg.maskedMobile} at ${ts(sg.identity?.verifiedAt)}`],
           ["Signature", sg.signature.type === "drawn" ? "Hand-drawn" : `Typed: ${sg.signature.typedName}`], ["Signed at", ts(sg.signature.signedAt)],
           ["IP address", sg.signature.ip], ["Device", sg.signature.userAgent], ["Certificate ID", sg.signature.certificateId], ["Committed to SHA-256", sg.signature.signedDocHash]]);
       }
       doc.moveDown(1);
-      p("Both signers verified their identity and consented to sign this document electronically. The SHA-256 hash of this complete signed PDF is registered on the blockchain; recomputing the hash of an unmodified copy will match the on-chain record.");
+      p("All listed signatories completed the prototype identity check and consented to sign this document electronically. The SHA-256 hash of this complete signed PDF can be registered on a configured blockchain. Check the agreement record for actual registration status.");
     }
     doc.end();
   });

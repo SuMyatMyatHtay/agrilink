@@ -10,8 +10,10 @@ import mongoose from "mongoose";
 import { createApp } from "../src/app.js";
 import { seedIfEmpty } from "../src/seed.js";
 import { createNotifier } from "../src/modules/notifications/notifier.js";
-import { createStore } from "../src/modules/contracts/storage.js";
+import { createStore, createMongoStore } from "../src/modules/contracts/storage.js";
 import { agreementRef } from "../src/modules/contracts/chain.js";
+import { User } from "../src/modules/users/model.js";
+import { signToken } from "../src/middleware/auth.js";
 
 function fakeChain() {
   const versions = new Map(), byHash = new Map();
@@ -57,7 +59,7 @@ before(async () => {
   await mongoose.connection.dropDatabase();
   await seedIfEmpty();
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), "agl-"));
-  server = createApp({ ml: fakeMl, notifier: createNotifier(null), contractDeps: { chain: fakeChain(), store: createStore(tmp), handoff: async (a) => { handed.push(a.agreementId); return { status: "handed_over", at: new Date(), m2AgreementId: a.agreementId }; } } }).listen(0);
+  server = createApp({ ml: fakeMl, notifier: createNotifier(null), contractDeps: { chain: fakeChain(), store: createMongoStore(), handoff: async (a) => { handed.push(a.agreementId); return { status: "handed_over", at: new Date(), m2AgreementId: a.agreementId }; } } }).listen(0);
   base = `http://127.0.0.1:${server.address().port}`;
 });
 after(async () => { server.close(); await mongoose.disconnect(); fs.rmSync(tmp, { recursive: true, force: true }); });
@@ -89,8 +91,24 @@ test("full agreement lifecycle with tamper detection", async () => {
   assert.equal((await api(`/contracts/${id}`, { token: stranger.token })).status, 404);
 
   // send → draft PDF stored write-once
+  assert.equal((await api(`/contracts/${id}/send`, { method: "POST", token: buyer.token })).body.error, "fpo_officer_required");
+  const admin = await login("9000000001", "operations");
+  const officer = await User.create({ mobile: "9000000081", role: "operations", name: "Devgad Witness", m2Role: "fpo", m2Actor: "AGL-FPO-devgad-growers-fpo" });
+  const witnessToken = signToken(officer);
+  const outsider = await User.create({ mobile: "9000000082", role: "operations", name: "Other Witness", m2Role: "fpo" });
+  const outsiderToken = signToken(outsider);
+  assert.equal((await api(`/contracts/witness-assignment/${f.user._id}`, { method: "PUT", token: admin.token, body: { officerId: String(officer._id) } })).status, 200);
+  const otherFpoFarmer = await User.create({ mobile: "9876543299", role: "farmer", name: "Other FPO farmer", farm: { village: "Other village", district: "Ratnagiri", fpo: "Other FPO" } });
+  assert.equal((await api(`/contracts/witness-assignment/${otherFpoFarmer._id}`, { method: "PUT", token: admin.token, body: { officerId: String(officer._id) } })).body.error, "wrong_fpo");
+  assert.equal((await api(`/contracts/witness-assignment/${f.user._id}`, { method: "PUT", token: witnessToken, body: { officerId: String(outsider._id) } })).status, 403);
   const sent = await api(`/contracts/${id}/send`, { method: "POST", token: buyer.token });
   assert.equal(sent.body.status, "pending_signature");
+  assert.equal(sent.body.signers.length, 3);
+  assert.equal((await api(`/bonds/${bond._id}/sign`, { method: "POST", token: f.token })).body.error, "use_contract_signing");
+  assert.equal((await api(`/contracts/${id}/sign/start`, { method: "POST", token: witnessToken })).body.error, "awaiting_parties");
+  assert.equal((await api(`/contracts/${id}/sign/verify`, { method: "POST", token: witnessToken, body: { otp: "1234" } })).body.error, "awaiting_parties");
+  assert.equal((await api(`/contracts/${id}/sign/start`, { method: "POST", token: outsiderToken })).status, 404);
+  assert.equal((await api(`/contracts/${id}/terms`, { method: "PUT", token: witnessToken, body: { priceUsdPerKg: 1 } })).status, 404);
   assert.equal((await api(`/contracts/${id}/terms`, { method: "PUT", token: buyer.token, body: { packaging: "x" } })).status, 409);
   const draftPdf = await api(`/contracts/${id}/document?kind=draft`, { token: f.token });
   assert.equal(draftPdf.body.subarray(0, 5).toString(), "%PDF-");
@@ -108,7 +126,14 @@ test("full agreement lifecycle with tamper detection", async () => {
   await api(`/contracts/${id}/sign/start`, { method: "POST", token: f.token });
   await api(`/contracts/${id}/sign/verify`, { method: "POST", token: f.token, body: { otp: "1234" } });
   const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
-  const done = (await api(`/contracts/${id}/sign`, { method: "POST", token: f.token, body: { type: "drawn", image: png, consent: true } })).body;
+  const partiesDone = (await api(`/contracts/${id}/sign`, { method: "POST", token: f.token, body: { type: "drawn", image: png, consent: true } })).body;
+  assert.equal(partiesDone.status, "pending_signature");
+  assert.equal(partiesDone.witnessReady, true);
+  assert.ok(!partiesDone.documents.some(d => d.kind === "signed"));
+  assert.equal((await api(`/contracts/${id}`, { token: witnessToken })).body.myRole, "witness");
+  assert.equal((await api(`/contracts/${id}/sign/start`, { method: "POST", token: witnessToken })).status, 200);
+  assert.equal((await api(`/contracts/${id}/sign/verify`, { method: "POST", token: witnessToken, body: { otp: "1234" } })).status, 200);
+  const done = (await api(`/contracts/${id}/sign`, { method: "POST", token: witnessToken, body: { type: "typed", typedName: "Devgad Witness", consent: true } })).body;
   assert.equal(done.status, "registered");
   assert.equal(done.chain.status, "registered");
   assert.ok(done.chain.txHash && done.chain.blockNumber);
@@ -145,7 +170,7 @@ test("full agreement lifecycle with tamper detection", async () => {
   assert.equal(am.status, "draft");
   assert.equal(am.history[0].chain.status, "registered");
   await api(`/contracts/${id}/send`, { method: "POST", token: buyer.token });
-  for (const t of [buyer.token, f.token]) {
+  for (const t of [buyer.token, f.token, witnessToken]) {
     await api(`/contracts/${id}/sign/start`, { method: "POST", token: t });
     await api(`/contracts/${id}/sign/verify`, { method: "POST", token: t, body: { otp: "1234" } });
     await api(`/contracts/${id}/sign`, { method: "POST", token: t, body: { type: "typed", typedName: "Signer Name", consent: true } });

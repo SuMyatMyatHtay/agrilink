@@ -8,9 +8,10 @@ import { availableTons } from "../bonds/allocation.js";
 import { answer } from "../assistant/routes.js";
 import { MessageLog } from "../messaging/model.js";
 import { HttpError } from "../../lib/http.js";
+import { telegramVoice } from "../assistant/speech.js";
 const hash = (token) => createHash("sha256").update(token).digest("hex");
 const appUrl = () => (process.env.PUBLIC_APP_URL || "http://localhost:5173").replace(/\/$/, "");
-const HELP = "/requests - open buyer requests\n/status - account status\n/stop - pause notifications\n/subscribe - resume notifications\n/unlink - disconnect\n/help - commands\nYou can also type a farming question. Voice notes are not supported yet.";
+const HELP = "/requests - open buyer requests\n/status - account status\n/stop - pause notifications\n/subscribe - resume notifications\n/unlink - disconnect\n/help - commands\nType a farming question or send a short voice note (speech provider setup required). Replies are text.";
 export async function createLink(userId) {
   if (!telegramEnabled() || !botUsername() || !process.env.TELEGRAM_BOT_TOKEN || !process.env.TELEGRAM_WEBHOOK_SECRET) throw new HttpError(503, "Telegram is not configured yet", "telegram_not_configured");
   const token = randomBytes(24).toString("base64url"), expiresAt = new Date(Date.now() + 10 * 60_000);
@@ -51,8 +52,18 @@ export async function handleUpdate(update, inject = {}) {
   } catch (error) { if (error.code === 11000) throw new HttpError(503, "Update processing; retry later", "processing"); throw error; }
   try {
     let user = await User.findOne({ telegramChatId: chatId, role: "farmer" });
-    const text = (message.text || "").trim().slice(0, 1500), [raw, parameter] = text.split(/\s+/), command = raw?.split("@")[0].toLowerCase();
-    let reply = previous?.reply;
+    let text = (message.text || "").trim().slice(0, 1500), voiceError;
+    let transcript = previous?.transcript;
+    let demoVoice = previous?.demoVoice;
+    if (user && !previous?.reply && (message.voice || message.audio)) {
+      try {
+        if (!transcript) { const result = await telegramVoice(message.voice || message.audio, user.lang, inject.speech || {}); transcript = result.text; demoVoice = result.demo === true; }
+        text = transcript;
+        await TelegramUpdate.updateOne({ _id: update.update_id }, { $set: { transcript, demoVoice } });
+      } catch (error) { voiceError = error instanceof HttpError ? error.message : "Voice is unavailable. Please type your question."; }
+    }
+    const [raw, parameter] = text.split(/\s+/), command = message.voice || message.audio ? undefined : raw?.split("@")[0].toLowerCase();
+    let reply = previous?.reply || voiceError;
     if (reply && previous.replyUser) user = await User.findById(previous.replyUser);
     if (!reply) {
       if (command === "/start" && parameter) {
@@ -65,10 +76,11 @@ export async function handleUpdate(update, inject = {}) {
       else if (command === "/unlink") { await disconnect(user._id); reply = "Your Telegram account is disconnected from AgriLink."; }
       else if (command === "/requests") {
         const rows = await Requirement.find({ $expr: { $gt: [{ $subtract: ["$tons", { $add: ["$filled", { $ifNull: ["$reserved", 0] }] }] }, 0] } }).sort({ createdAt: -1 }).limit(5);
-        reply = rows.length ? "Open buyer requests (first come, first served):\n\n" + rows.map((r) => `${r.buyerName}: Grade ${r.grade}, ${availableTons(r)} t available, USD ${r.priceUsd}/kg.\n${appUrl()}/farmer/offers?requirement=${r._id}`).join("\n\n") : "No open buyer requests right now.";
-      } else if (!text || message.voice || message.audio) reply = "Please type your question. Telegram voice transcription is not implemented yet.";
+        reply = rows.length ? "Open buyer requests:\n\n" + rows.map((r) => `${r.buyerName}: Grade ${r.grade}, ${availableTons(r)} t available, USD ${r.priceUsd}/kg. ${r.allocationMode === "rating" ? "Rating-based applications" : "First come, first served"}.\n${appUrl()}/farmer/offers?requirement=${r._id}`).join("\n\n") : "No open buyer requests right now.";
+      } else if (!text) reply = "Please type a question or send a short voice note.";
       else if (text.startsWith("/")) reply = HELP;
       else { try { reply = (await (inject.answer || answer)(user._id, [{ role: "user", content: text }], user.lang || "en", inject)).reply; } catch { reply = "Mitra is temporarily unavailable. You can still use /requests."; } }
+      if (transcript) reply = `${demoVoice ? "Demo voice placeholder (audio was not transcribed)" : "I heard"}: ${transcript}\n\n${reply}`;
       await TelegramUpdate.updateOne({ _id: update.update_id }, { $set: { reply, replyUser: user?._id } });
     }
     const provider = inject.provider || telegramProvider(), mode = inject.mode || telegramMode();

@@ -23,6 +23,8 @@ const userSchema = new mongoose.Schema(
     m2Actor: String,                                             // e.g. OPS-1, FPO-RTN, DOC-RTN
     name: String,
     company: String, // buyers
+    fpoOfficer: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // assigned by operations, never accepted from farmer forms
+    officerFpoId: String, // explicit witness affiliation; independent of the demo desk picker
     farm: farmSchema, // farmers; absent until onboarding is done
     lang: { type: String, enum: ["en", "hi", "mr", "gu", "ta", "te", "kn"], default: "en" },
     // farmer's message channels (WhatsApp / SMS / voice notes). In-app notifications are always on.

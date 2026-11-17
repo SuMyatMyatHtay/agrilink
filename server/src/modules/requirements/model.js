@@ -14,6 +14,7 @@ const requirementSchema = new mongoose.Schema(
     filled: { type: Number, default: 0 },
     reserved: { type: Number, default: 0, min: 0 },
     interested: { type: Number, default: 0 },
+    allocationMode: { type: String, enum: ["fcfs", "rating"], default: "fcfs" },
   },
   { timestamps: true }
 );

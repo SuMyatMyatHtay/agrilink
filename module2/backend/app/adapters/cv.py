@@ -92,6 +92,24 @@ class AgriLinkVisionCV(SimulatedCV):
 
 
 def make_cv():
+    if os.getenv("M2_CV_IN_PROCESS") == "true":
+        class InProcessCV(SimulatedCV):
+            name = "agrilink-vision-in-process"
+
+            def analyze_many(self, files, profile=None):
+                if profile:
+                    return super().analyze_many(files, profile)
+                from app.modules.vision.service import analyze
+                return analyze(files)
+
+            def learn(self, files, grade, ref=None):
+                # The standalone gallery needs persistent filesystem storage;
+                # the integrated Node quality workspace provides durable learning.
+                if os.getenv("VERCEL"):
+                    return {"added": 0, "skipped": len(files), "reason": "use_integrated_quality_learning"}
+                from app.modules.vision.service import learn
+                return learn(files, grade, "farmer_doctor", ref)
+        return InProcessCV()
     url = os.getenv("M2_CV_URL")
     return AgriLinkVisionCV(url) if url else SimulatedCV()
 

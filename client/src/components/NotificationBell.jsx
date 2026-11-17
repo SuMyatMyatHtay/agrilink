@@ -8,6 +8,9 @@ import Icon from "./Icon.jsx";
 const ICON = { req_new: "offers", bond_new: "agreements", bond_signed: "pen", bond_active: "checkCircle", bond_declined: "xCircle", weather: "rain", contract_sign_request: "pen", contract_signed_by: "pen", contract_registered: "shield", contract_amended: "agreements", contract_milestone: "checkCircle", contract_disputed: "alert", contract_declined: "xCircle", certificate_issued: "shield", certificate_revoked: "xCircle", stage_review_request: "checkCircle", stage_decision: "sprout", advisory_new: "target" };
 
 function target(n, role) {
+  if (n.type === "pilot_update" || n.type === "quality_review_ready") return `/contracts/${n.data?.agreementId}/pilot`;
+  if (n.type === "allocation_awarded") return `/contracts/${n.data?.agreementId}`;
+  if (n.type === "allocation_application") return "/buyer";
   if (n.type === "advisory_new") return "/farmer/advice";
   if (n.type === "advisory_help_answered") return `/farmer/advice/${n.data?.itemId}`;
   if (n.type === "advisory_help") return "/ops/agronomist";
@@ -39,7 +42,7 @@ export default function NotificationBell() {
 
   return (
     <div className="bellwrap">
-      <button className="bell" onClick={toggle} aria-label={t("notif_title")} title={rt.connected ? "live" : "offline"}>
+      <button className="bell" onClick={toggle} aria-label={t("notif_title")} title={rt.connected ? "Live updates" : "Updates checked every 15 seconds"}>
         <Icon name="bell" size={18} />
         {rt.unread > 0 && <span className="badge">{rt.unread > 9 ? "9+" : rt.unread}</span>}
         <i className={`dot ${rt.connected ? "on" : ""}`} />

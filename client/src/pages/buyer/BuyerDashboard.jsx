@@ -5,13 +5,14 @@ import { useAuth } from "../../context/AuthContext.jsx";
 import { useApi } from "../../hooks/useApi.js";
 import { ErrorBox, Loading } from "../../components/ui.jsx";
 import "./buyer.css";
+import Applicants from "./Applicants.jsx";
 
 const dateAfter = (days) => {
   const d = new Date();
   d.setDate(d.getDate() + days);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
-const initialForm = () => ({ grade: "A", tons: "", priceUsd: "", deliverBy: dateAfter(30), floorUsd: "", escalation: false, pct: "8" });
+const initialForm = () => ({ grade: "A", tons: "", priceUsd: "", deliverBy: dateAfter(30), floorUsd: "", escalation: false, pct: "8", allocationMode: "fcfs" });
 const GRADES = { A: "Grade A - premium export quality", B: "Grade B - standard quality", C: "Grade C - processing quality" };
 
 export default function BuyerDashboard() {
@@ -19,6 +20,7 @@ export default function BuyerDashboard() {
   const reqs = useApi("/requirements", { refreshMs: 60000, live: ["requirements", "bonds"] });
   const [form, setForm] = useState(initialForm);
   const [showForm, setShowForm] = useState(false);
+  const [applicants, setApplicants] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -42,7 +44,7 @@ export default function BuyerDashboard() {
     publishing.current = true; setBusy(true);
     try {
       await api("/requirements", { method: "POST", body: {
-        grade: form.grade, tons: +form.tons, priceUsd: +form.priceUsd, deliverBy: form.deliverBy,
+        grade: form.grade, tons: +form.tons, priceUsd: +form.priceUsd, deliverBy: form.deliverBy, allocationMode: form.allocationMode,
         ...(form.floorUsd !== "" && { floorUsd: +form.floorUsd }),
         escalation: { enabled: form.escalation, pct: form.escalation ? +form.pct : 0 },
       } });
@@ -82,7 +84,8 @@ export default function BuyerDashboard() {
             <div><label htmlFor="req-price">Your offered price (USD per kg)</label><input id="req-price" type="number" min="0.1" step="0.01" placeholder="e.g. 5.00" value={form.priceUsd} onChange={set("priceUsd")} required /></div>
             <div><label htmlFor="req-date">Delivery date</label><input id="req-date" type="date" min={dateAfter(1)} value={form.deliverBy} onChange={set("deliverBy")} required /></div>
           </div>
-          <details className="buyer-optional"><summary>Optional pricing terms</summary>
+          <details className="buyer-optional"><summary>Optional allocation &amp; pricing</summary>
+            <label htmlFor="allocation-mode">How farmers receive this order</label><select id="allocation-mode" value={form.allocationMode} onChange={set("allocationMode")}><option value="fcfs">First come, first served</option><option value="rating">Applications ranked by delivery ratings</option></select>
             <p className="note">Leave these unchanged for a straightforward fixed-price offer.</p>
             <label htmlFor="req-floor">Minimum price floor (USD per kg)</label><input id="req-floor" type="number" min="0" max={form.priceUsd || undefined} step="0.01" value={form.floorUsd} onChange={set("floorUsd")} />
             <label className="buyer-check"><input type="checkbox" checked={form.escalation} onChange={set("escalation")} /> Allow a higher offer if supply is tight</label>
@@ -99,9 +102,10 @@ export default function BuyerDashboard() {
       <ErrorBox error={reqs.error} />
       {!reqs.loading && !reqs.error && rows.length === 0 && <div className="buyer-empty"><h3>Start with your first requirement</h3><p>Post an offer so farmers know what you want to buy.</p><button className="btn" type="button" onClick={openForm}>Post a requirement</button></div>}
       {rows.length > 0 && <div className="tableWrap"><table><thead><tr><th>Grade</th><th>Quantity</th><th>Offer (USD/kg)</th><th>Delivery date</th><th>Claimed / requested</th><th>Interested</th><th>Actions</th></tr></thead><tbody>
-        {rows.map((r) => <tr key={r._id}><td>Grade {r.grade}</td><td>{r.tons} t</td><td>${Number(r.priceUsd).toFixed(2)}</td><td>{r.deliverBy.slice(0, 10)}</td><td>{+((r.filled || 0) + (r.reserved || 0)).toFixed(1)} / {r.tons} t</td><td>{r.interested || 0} farmers</td><td><button className="btn alt small" type="button" disabled={withdrawing !== null} onClick={() => withdraw(r._id)}>{withdrawing === r._id ? "Withdrawing?" : "Withdraw"}</button></td></tr>)}
+        {rows.map((r) => <tr key={r._id}><td>Grade {r.grade}<div className="note">{r.allocationMode === "rating" ? "Rating-based applications" : "First come, first served"}</div></td><td>{r.tons} t</td><td>${Number(r.priceUsd).toFixed(2)}</td><td>{r.deliverBy.slice(0, 10)}</td><td>{+((r.filled || 0) + (r.reserved || 0)).toFixed(1)} / {r.tons} t</td><td>{r.interested || 0} farmers</td><td>{r.allocationMode === "rating" && <button className="btn small" type="button" onClick={() => setApplicants(r)}>View applicants</button>}<button className="btn alt small" type="button" disabled={withdrawing !== null} onClick={() => withdraw(r._id)}>{withdrawing === r._id ? "Withdrawing?" : "Withdraw"}</button></td></tr>)}
       </tbody></table></div>}
     </section>
+    {applicants && <Applicants requirement={applicants} onClose={() => setApplicants(null)} />}
     <p className="note">Already received a farmer commitment? <Link to="/contracts">Review your agreements</Link>.</p>
   </div>;
 }

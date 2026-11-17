@@ -14,8 +14,8 @@ export function AuthProvider({ children }) {
       const token = getToken();
       if (!token) return setReady(true);
       try {
-        const role = JSON.parse(atob(token.split(".")[1])).role;
-        const u = role === "farmer" ? await api("/farmers/me") : role === "operations" ? await api("/ops/me") : { role, ...JSON.parse(localStorage.getItem("agrilink_buyer") || "{}") };
+        const payload = JSON.parse(atob(token.split(".")[1])), role = payload.role;
+        const u = role === "farmer" ? await api("/farmers/me") : role === "operations" ? await api("/ops/me") : { ...JSON.parse(localStorage.getItem("agrilink_buyer") || "{}"), role, _id: payload.sub };
         setUser(u);
         try { localStorage.setItem("agrilink_last_user", JSON.stringify(u)); } catch { /* ignore */ }
       } catch (e) {

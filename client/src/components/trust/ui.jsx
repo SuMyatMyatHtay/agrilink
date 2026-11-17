@@ -51,7 +51,7 @@ export const ACTION_LABEL = {
 };
 export const MILESTONE_LABEL = {
   created: "Agreement created", sent: "Sent for signing", buyer_signed: "Buyer signed", fpo_signed: "Farmer / FPO signed",
-  registered: "Registered on Polygon", harvest_completed: "Harvest completed", quality_inspected: "Quality inspection completed",
+  witness_signed: "Assigned FPO officer witnessed", registered: "Registered on Polygon", harvest_completed: "Harvest completed", quality_inspected: "Quality inspection completed",
   packing_completed: "Packing completed", shipment_dispatched: "Shipment dispatched", goods_received: "Buyer received goods", payment_completed: "Payment completed",
 };
 export const actionLabel = (a) => (a.startsWith("milestone:") ? MILESTONE_LABEL[a.slice(10)] || a : ACTION_LABEL[a] || a);

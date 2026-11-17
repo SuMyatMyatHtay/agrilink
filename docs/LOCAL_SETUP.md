@@ -75,3 +75,7 @@ The walkthrough still runs against the local services already started; it is not
 These checks created local demo records, including a farmer profile, a registered agreement, and a buyer requirement. The seeded requirements retain the repository's historical 2026 delivery dates. Forecast models use the repository's sample training data.
 
 External AI, WhatsApp/SMS/TTS and mandi providers were not verified without credentials. Public-chain deployment and production payment/e-signature providers were not part of this local check. Package audits also report existing dependency advisories (client: 4, server: 1, blockchain: 19); major-version dependency upgrades remain separate work. Python tests passed with a Starlette/httpx deprecation warning.
+# Recommended combined startup
+
+Use [MODULE_CONNECTIONS.md](MODULE_CONNECTIONS.md): `node scripts/dev-all.mjs` from `agrilink` runs client, Node API and the combined ML/farm-operations service. The older separate-service commands below remain an alternative when you explicitly configure their URLs.
+

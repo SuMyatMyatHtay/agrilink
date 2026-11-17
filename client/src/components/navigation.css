@@ -1,4 +1,9 @@
 .farmer-secondary { margin-top: 22px; border-top: 1px solid var(--line); padding-top: 10px; }
+.profile-card { color: var(--ink); text-decoration: none; border-radius: 8px; }
+.profile-card:hover { background: var(--brand-50); }
+.profile-card > .who { flex: 1; }
+.profile-card:focus-visible, .profile-shortcut:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.profile-shortcut { text-decoration: none; }
 .portal-more { margin: 4px 0; }
 .portal-more > summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; list-style: none; cursor: pointer; padding: 12px; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--text-2); }
 .portal-more > summary::-webkit-details-marker { display: none; }

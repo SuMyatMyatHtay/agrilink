@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../../api.js";
 import { useApi } from "../../hooks/useApi.js";
 import Icon from "../../components/Icon.jsx";
-import { useToast } from "../../components/ui.jsx";
+import { useToast, Loading, ErrorBox } from "../../components/ui.jsx";
 import { Hash, dt, fetchPdf, sha256Hex } from "../../components/trust/ui.jsx";
 
 /**
@@ -20,7 +20,9 @@ export default function Verify() {
   const [busy, setBusy] = useState(false);
   const [over, setOver] = useState(false);
   const input = useRef(null);
-  const list = useApi("/contracts").data?.items?.filter((a) => a.chain?.status === "registered" || a.history?.length) || [];
+  const all = useApi("/contracts");
+  const metadata = useApi("/contracts/meta");
+  const list = all.data?.items?.filter((a) => a.chain?.status === "registered" || a.history?.length) || [];
 
   const check = async (name, buffer) => {
     setBusy(true); setRes(null);
@@ -43,6 +45,18 @@ export default function Verify() {
   };
 
   const ok = res?.result === "verified";
+  if (metadata.error) return <ErrorBox error={metadata.error} />;
+  if (!metadata.data) return <Loading />;
+  if (metadata.data.chain?.status !== "connected") {
+    const signed = (all.data?.items || []).filter(a => a.documents.some(d => d.kind === "signed" && d.version === a.version));
+    return <><div className="page-head"><div><h2>Verify document integrity</h2><p className="sub">Check an original signed PDF against its recorded hash.</p></div></div>
+      <div className="card"><h3>Demo integrity verification</h3><p className="note">Public blockchain verification is currently unavailable. The agreement workspace provides a labelled demo hash ledger with original-versus-modified PDF checks. It is separate from public-chain anchoring.</p>
+        <ErrorBox error={all.error} />{all.loading && <Loading />}
+        {signed.map(a => <p key={a.agreementId}><Link className="btn alt" to={`/contracts/${a.agreementId}/pilot#integrity-proof`}>Verify {a.agreementId}</Link></p>)}
+        {!all.loading && !signed.length && <p className="note">Complete all required signatures first. Your signed agreements will appear here.</p>}
+        <Link to="/contracts">Back to agreements</Link>
+      </div></>;
+  }
   return (
     <>
       <div className="page-head">

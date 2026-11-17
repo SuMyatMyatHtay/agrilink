@@ -19,7 +19,12 @@ export function notifText(n, t) {
     case "bond_active": return t("n_bond_active", { id: d.bondId });
     case "bond_declined": return t("n_bond_declined", { name, id: d.bondId });
     case "contract_sign_request": return t("n_contract_sign_request", { id: d.agreementId });
-    case "contract_signed_by": return t("n_contract_signed_by", { who: t("who_" + d.by), id: d.agreementId });
+    case "contract_signed_by": return t("n_contract_signed_by", { who: d.by === "witness" ? "FPO witness" : t("who_" + d.by), id: d.agreementId });
+    case "contract_witness_ready": return `Buyer and farmer have signed ${d.agreementId}. Your FPO witness signature is needed.`;
+    case "pilot_update": return `Delivery workspace updated for ${d.agreementId}: ${String(d.event || "").replaceAll("_", " ")}.`;
+    case "quality_review_ready": return `A crop assessment needs FPO review for ${d.agreementId}.`;
+    case "allocation_application": return `${d.farmer || "A farmer"} applied to your rating-based requirement.`;
+    case "allocation_awarded": return `A rating-based order was awarded. Review agreement ${d.agreementId}.`;
     case "contract_registered": return t("n_contract_registered", { id: d.agreementId, block: d.block });
     case "contract_amended": return t("n_contract_amended", { id: d.agreementId, v: d.version });
     case "contract_milestone": return t("n_contract_milestone", { id: d.agreementId, m: d.key });
@@ -64,7 +69,12 @@ export function RealtimeProvider({ children }) {
     if (!user) { setItems([]); setUnread(0); setUnseenRequestIds([]); return undefined; }
     load();
     const poll = setInterval(load, 15000);
-    const socket = io(import.meta.env.VITE_REALTIME_URL || undefined, { auth: { token: getToken() }, transports: ["websocket", "polling"] });
+    const realtimeUrl = import.meta.env.VITE_REALTIME_URL;
+    // Serverless deployments use notification polling. Never open a socket to
+    // the static frontend by default; persistent hosts can opt in explicitly.
+    const useSocket = realtimeUrl !== "disabled" && (realtimeUrl || import.meta.env.DEV);
+    if (!useSocket) { setConnected(false); return () => clearInterval(poll); }
+    const socket = io(realtimeUrl || undefined, { auth: { token: getToken() }, transports: ["websocket", "polling"], reconnectionAttempts: 3 });
     socket.on("connect", () => { setConnected(true); load(); }); // catch up on anything missed while offline
     socket.on("disconnect", () => setConnected(false));
     socket.on("notification", (n) => {

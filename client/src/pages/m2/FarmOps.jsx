@@ -1,8 +1,9 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { M2Provider, Module2Routes, m2NavFor, useM2 } from "@module2";
 import { useAction } from "@module2/context.jsx";
 import { api, getToken } from "../../api.js";
 import { useAuth } from "../../context/AuthContext.jsx";
+import { useRealtime } from "../../context/RealtimeContext.jsx";
 import Icon from "../../components/Icon.jsx";
 import "./m2-theme.css";
 
@@ -31,9 +32,22 @@ export function FarmOpsProvider({ children }) {
   const headers = () => { const t = getToken(); return t ? { Authorization: `Bearer ${t}` } : {}; };
   return (
     <M2Provider apiBase="/api/m2" basePath={OPS_BASE[user?.role] || "/ops/farm"} auth={auth} getHeaders={headers} key={`${auth.role}:${auth.actorId}`}>
+      <FarmOpsUpdates />
       {children}
     </M2Provider>
   );
+}
+
+function FarmOpsUpdates() {
+  const { refresh } = useM2();
+  const rt = useRealtime();
+  useEffect(() => rt?.onChange(resource => { if (resource === "farmops") refresh(); }), [rt?.onChange, refresh]);
+  useEffect(() => {
+    if (rt?.connected) return undefined;
+    const timer = setInterval(refresh, 30000);
+    return () => clearInterval(timer);
+  }, [rt?.connected, refresh]);
+  return null;
 }
 
 /** Sidebar groups for the portal: Module 2 pages filtered for this user's role. */
@@ -69,12 +83,12 @@ export function OpsRolePicker() {
   const { meta } = useM2();
   if (user?.role !== "operations") return null;
   const role = user.m2Role || "admin";
-  const people = meta?.actors?.[role] || [];
+  const people = (meta?.actors?.[role] || []).filter(p => role !== "fpo" || !user.officerFpoId || p.id === user.officerFpoId);
   const save = async (m2Role, m2Actor) => setUser(await api("/ops/me", { method: "PUT", body: { m2Role, m2Actor } }));
   return (
     <div className="m2x-viewas">
       <label className="note">Desk</label>
-      <select value={role} onChange={(e) => { const r = e.target.value; save(r, r === "admin" ? "OPS-1" : meta?.actors?.[r]?.[0]?.id || (r === "fpo" ? "FPO-RTN" : "DOC-RTN")); }}>
+      <select value={role} onChange={(e) => { const r = e.target.value; save(r, r === "admin" ? "OPS-1" : r === "fpo" && user.officerFpoId ? user.officerFpoId : meta?.actors?.[r]?.[0]?.id || (r === "fpo" ? "FPO-RTN" : "DOC-RTN")); }}>
         {["admin", "fpo", "doctor"].map((k) => <option key={k} value={k}>{ROLE_LABEL[k]}</option>)}
       </select>
       {role !== "admin" && (
@@ -89,12 +103,11 @@ export function OpsRolePicker() {
 
 /** The Module 2 pages, rendered inside the portal's content area. */
 export default function FarmOpsPage() {
-  const { metaError } = useM2();
+  const { metaError, refresh } = useM2();
   return (
     <div className="m2x">
       <div className="m2x-bar"><Clock /></div>
-      {metaError && <div className="alertbox"><span className="ic"><Icon name="alert" /></span><div><b>Farm operations service is not running.</b> Start it: <span className="mono">cd module2/backend &amp;&amp; python -m uvicorn app.main:app --port 8100</span></div></div>}
-      <Module2Routes />
+      {metaError ? <div className="alertbox"><span className="ic"><Icon name="alert" /></span><div><b>Farm operations is temporarily unavailable.</b><p>Your saved agreements remain available. Retry the connection or ask your operations administrator to check the service configuration.</p><button className="btn alt small" onClick={refresh}>Retry connection</button></div></div> : <Module2Routes />}
     </div>
   );
 }

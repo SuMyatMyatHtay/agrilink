@@ -24,8 +24,8 @@
   --shadow: 0 1px 2px rgba(16, 40, 28, .05), 0 1px 3px rgba(16, 40, 28, .06);
   --shadow-lg: 0 12px 32px rgba(16, 40, 28, .12);
   --radius: 18px;
-  --photo-farm: url(/img/farm-hero.jpg), url(/img/orchard.svg);
-  --photo-mango: url(/img/mango.jpg), url(/img/mango.svg);
+  --photo-farm: url(/img/orchard.svg);
+  --photo-mango: url(/img/mango.svg);
   --side-w: 248px;
   color-scheme: light;
 }

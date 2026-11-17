@@ -7,7 +7,7 @@ import { Hash } from "../../components/trust/ui.jsx";
 const ONCHAIN = [
   ["Agreement reference", "keccak256(agreement ID)", "On-chain"], ["Signed PDF SHA-256", "32-byte hash", "On-chain"],
   ["Version and previous-version hash", "amendment chain", "On-chain"], ["Registration time and registrar", "block timestamp", "On-chain"],
-  ["Signed PDF", "write-once versioned storage (S3 Object Lock in production)", "Off-chain"],
+  ["Signed PDF", "MongoDB on Vercel; configured document store on persistent hosts", "Off-chain"],
   ["Names, phone numbers, addresses", "MongoDB (access-controlled)", "Off-chain"], ["Prices and commercial terms", "inside the PDF / database", "Off-chain"],
   ["Signature evidence (OTP, IP, certificate)", "signature certificate page + database", "Off-chain"],
 ];
@@ -25,7 +25,7 @@ export default function Network() {
       <div className="grid two" style={{ alignItems: "start" }}>
         <div className="card chain-hero">
           <h3><Icon name="globe" />Blockchain</h3>
-          {c.error ? <span className="seal bad"><Icon name="xCircle" size={16} />{c.error}</span> : (
+          {c.error ? <div role="status"><span className={`badge ${c.status === "disabled" ? "b-draft" : "b-failed"}`}>{c.status === "disabled" ? "Anchoring not enabled" : "Network unavailable"}</span><p className="note" style={{ marginTop: 12 }}>{c.error}</p><p className="note">Both parties can still sign. Blockchain verification becomes available after a registry is configured and the signed document hash is registered.</p></div> : (
             <dl className="kv" style={{ gridTemplateColumns: "150px 1fr" }}>
               <dt>Network</dt><dd>{c.network}</dd><dt>Chain ID</dt><dd>{c.chainId}</dd>
               <dt>Registry contract</dt><dd><Hash value={c.contract} short={false} /></dd>
@@ -40,7 +40,7 @@ export default function Network() {
           <h3><Icon name="pen" />E-signature and storage</h3>
           <dl className="kv" style={{ gridTemplateColumns: "150px 1fr" }}>
             <dt>Active provider</dt><dd>{m.esign.active}</dd>
-            <dt>Available</dt><dd>{m.esign.providers.map((p) => `${p.name}${p.active ? "" : " (needs API keys)"}`).join(" · ")}</dd>
+            <dt>Providers</dt><dd>{m.esign.providers.map((p) => `${p.name}${p.active ? " (sandbox)" : ""}`).join(" · ")}</dd>
             <dt>Document storage</dt><dd>{m.storage.kind}</dd>
           </dl>
         </div>

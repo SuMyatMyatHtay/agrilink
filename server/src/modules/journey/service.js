@@ -86,20 +86,20 @@ export async function buildJourney(a, viewer, { ml, chain, weather = currentWeat
 
   // 5. Agreement signatures
   const signed = a.signers.filter((s) => s.status === "signed").length;
-  const mySigner = a.signers.find((s) => (s.role === "buyer" && iAm("buyer")) || (s.role === "farmer" && iAm("farmer")));
+  const mySigner = a.signers.find(s => String(s.user) === String(viewer.id));
   add({ key: "agreement", title: "Digital agreement", module: "Module 1 · Agreements",
-    status: signed === 2 ? "done" : a.status === "draft" ? "active" : "active",
-    summary: a.status === "draft" ? "Draft — terms being completed" : `${signed}/2 signatures (OTP-verified e-sign)`,
-    decision: signed === 2 ? "Both parties signed the exact same document." : a.status === "draft" ? "Complete terms and send for signature." : "Waiting for signatures.",
+    status: signed === a.signers.length ? "done" : "active",
+    summary: a.status === "draft" ? "Draft — terms being completed; FPO witness assigned when sent" : `${signed}/${a.signers.length} signatures (prototype identity check)`,
+    decision: signed === a.signers.length ? "All required signatories signed the exact same document." : a.status === "draft" ? "Complete terms and send for signature." : "Buyer and farmer sign, then the assigned FPO officer witnesses.",
     action: a.status === "draft" && !iAm("operations") ? { label: "Complete terms", to: `/contracts/${a.agreementId}/edit` }
-      : a.status === "pending_signature" && mySigner && mySigner.status !== "signed" ? { label: "Review & sign", to: `/contracts/${a.agreementId}/sign` } : { label: "Open agreement", to: `/contracts/${a.agreementId}` } });
+      : a.status === "pending_signature" && mySigner && mySigner.status !== "signed" && (mySigner.role !== "witness" || a.signers.filter(s => s.role !== "witness").every(s => s.status === "signed")) ? { label: mySigner.role === "witness" ? "Witness & sign" : "Review & sign", to: `/contracts/${a.agreementId}/sign` } : { label: "Open agreement", to: `/contracts/${a.agreementId}` } });
 
   // 6. Blockchain
   const dbHash = a.chain?.docHash;
   const matches = onChain && dbHash && onChain.docHash.toLowerCase() === dbHash.toLowerCase();
   add({ key: "blockchain", title: "Blockchain proof", module: "Module 1 · Polygon PoS",
     status: a.chain?.status === "registered" ? (matches ? "done" : onChain === null && src["Blockchain (Polygon)"].ok ? "warn" : "done") : a.chain?.status === "failed" ? "bad" : "pending",
-    summary: a.chain?.status === "registered" ? `Block ${a.chain.blockNumber} · ${matches ? "on-chain hash matches the signed PDF" : "re-check pending"}` : "Registered automatically when both have signed",
+    summary: a.chain?.status === "registered" ? `Block ${a.chain.blockNumber} · ${matches ? "on-chain hash matches the signed PDF" : "re-check pending"}` : "Anchoring requires all signatures and a configured blockchain",
     decision: a.chain?.status === "registered" ? "Tamper-evident: any change to the PDF will fail verification." : null,
     action: a.chain?.status === "registered" ? { label: "Verify document", to: `/contracts/verify?id=${a.agreementId}` } : null });
 

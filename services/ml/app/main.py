@@ -10,6 +10,7 @@ from .modules.price import service as price
 from .modules.cost.router import router as cost_router
 from .modules.cost import service as cost
 from .modules.vision.router import router as vision_router
+from .farm_operations import mount_farm_operations
 
 
 @asynccontextmanager
@@ -25,6 +26,8 @@ app = FastAPI(title="AgriLink ML service", version="0.6.0", lifespan=lifespan)
 # To add a module: create app/modules/<name>/{service,router}.py and register it here.
 for r in (supply_demand_router, price_router, cost_router, grading_router, alerts_router, mandi_router, vision_router):
     app.include_router(r)
+
+mount_farm_operations(app)
 
 
 @app.get("/health")

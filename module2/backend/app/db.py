@@ -3,10 +3,14 @@ from __future__ import annotations
 
 from pymongo import ASCENDING, DESCENDING, MongoClient
 from pymongo.database import Database
+import os
+from threading import Lock
 
 from .config import get_settings
 
 _client: MongoClient | None = None
+_index_lock = Lock()
+_indexed = False
 
 COLLECTIONS = [
     "fpos", "farmers", "farmer_doctors", "buyers",
@@ -26,7 +30,15 @@ def get_client() -> MongoClient:
 
 
 def get_db() -> Database:
-    return get_client()[get_settings().db_name]
+    global _indexed
+    db = get_client()[get_settings().db_name]
+    # Mounted ASGI sub-app lifespan hooks do not run in the parent ML app.
+    if os.getenv("VERCEL") == "1" and not _indexed:
+        with _index_lock:
+            if not _indexed:
+                ensure_indexes(db)
+                _indexed = True
+    return db
 
 
 def ensure_indexes(db: Database) -> None:

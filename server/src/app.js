@@ -16,6 +16,8 @@ export function createApp(injected) {
   if (!deps.noMessageBridge) bridgeNotifications(deps.notifier, deps.messenger);
   const app = express();
   app.use(cors());
+  app.use("/api/speech", express.json({ limit: "3mb" }));
+  app.use("/api/pilot", express.json({ limit: "2mb" }));
   // Module 2 gateway first: it streams raw bodies (photo uploads) and sets identity from the AgriLink login
   app.use("/api/m2", m2Gateway(deps));
   // stage assessments carry up to 5 photos (resized in the browser) as base64: larger limit on that route only

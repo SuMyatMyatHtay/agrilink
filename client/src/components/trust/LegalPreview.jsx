@@ -58,7 +58,9 @@ export default function LegalPreview({ a, terms, changed = [] }) {
       <div className="sigs2">
         <SigBox role="buyer" label="SIGNED FOR THE BUYER" />
         <SigBox role="farmer" label="SIGNED FOR THE SELLER (FARMER / FPO)" />
+        {signer("witness") && <SigBox role="witness" label="COUNTERSIGNED BY THE ASSIGNED FPO WITNESS" />}
       </div>
+      {signer("witness") && <p>The assigned FPO officer confirms the farmer's FPO affiliation and reviews this agreement after the buyer and farmer sign. Witnessing does not guarantee payment or delivery.</p>}
     </article>
   );
 }

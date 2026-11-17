@@ -1,4 +1,6 @@
 # AgriLink
+Run Module 1 + farm operations together: [docs/MODULE_CONNECTIONS.md](docs/MODULE_CONNECTIONS.md). Local launcher: `node scripts/dev-all.mjs` from this directory.
+Presentation demo and morning deployment/rehearsal steps: [docs/MORNING_CHECKLIST.md](docs/MORNING_CHECKLIST.md).
 Telegram bot setup and linking: [docs/TELEGRAM.md](docs/TELEGRAM.md).
 For production build settings, the shared admin portal, hosting order and per-service environment templates, see [Hosting the current app](deploy/HOSTING.md).
 Trade-and-trust platform for perishable Alphonso mango exports, India -> Singapore.

@@ -15,6 +15,7 @@ from ..domain import quality as q
 from ..errors import Conflict, DomainError, Forbidden
 from ..util import aware, ist, new_id
 from . import common
+from .. import photos as photo_store
 
 OPEN_CHECK = ["DUE", "REMINDED", "RETAKE_REQUESTED"]
 OPEN_VISIT = ["SCHEDULED"]
@@ -42,18 +43,15 @@ def create_check(db: Database, cm: dict, due_at: datetime, now: datetime, trigge
     return chk
 
 
-def _save_image(check_id: str, idx: int, data: bytes) -> str:
+def _save_image(db, check_id: str, idx: int, data: bytes) -> str:
     s = get_settings()
     kind = next((v for k, v in IMAGE_MAGIC.items() if data.startswith(k)), None)
     if kind is None:
         raise DomainError("only JPEG, PNG or WebP images can be uploaded")
     if len(data) > s.max_upload_mb * 1024 * 1024:
         raise DomainError(f"each photo must be {s.max_upload_mb:g} MB or smaller")
-    os.makedirs(s.upload_dir, exist_ok=True)
     name = f"{check_id}_{idx}.{kind}"
-    with open(os.path.join(s.upload_dir, name), "wb") as fh:
-        fh.write(data)
-    return name
+    return photo_store.put(db, name, data)
 
 
 def upload_photos(db: Database, check_id: str, files: list, profile: Optional[str],
@@ -68,7 +66,7 @@ def upload_photos(db: Database, check_id: str, files: list, profile: Optional[st
         raise DomainError("upload at least one photo")
     if len(files) > 5:
         raise DomainError("upload at most 5 photos per check")
-    names = [_save_image(check_id, len(chk["photos"]) + i, data) for i, data in enumerate(files)]
+    names = [_save_image(db, check_id, len(chk["photos"]) + i, data) for i, data in enumerate(files)]
     try:
         cv = cv_service.analyze_many(files, profile)
     except ValueError as e:
@@ -229,10 +227,10 @@ def _teach_gallery(db: Database, v: dict, grade: str, visit_id: str, now: dateti
         return
     files = []
     for name in chk["photos"]:
-        path = os.path.join(s.upload_dir, name)
-        if os.path.exists(path):
-            with open(path, "rb") as fh:
-                files.append(fh.read())
+        try:
+            files.append(photo_store.get(db, name))
+        except FileNotFoundError:
+            pass
     try:
         res = cv_service.learn(files, grade, ref=visit_id)
     except Exception:          # never block recording a visit because the AI service is down

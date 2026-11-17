@@ -7,6 +7,8 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 from fastapi.responses import FileResponse
+from fastapi.responses import Response
+from .. import photos as photo_store
 
 from ..auth import Actor, current_actor, require
 from ..config import get_settings
@@ -55,10 +57,13 @@ async def upload(check_id: str, photos: List[UploadFile] = File(...),
 def photo(name: str):
     if "/" in name or ".." in name:
         raise DomainError("bad file name")
-    path = os.path.join(get_settings().upload_dir, name)
-    if not os.path.isfile(path):
+    from ..db import get_db
+    try:
+        data = photo_store.get(get_db(), name)
+    except FileNotFoundError:
         raise NotFound("photo not found")
-    return FileResponse(path)
+    mime = "image/png" if name.endswith(".png") else "image/webp" if name.endswith(".webp") else "image/jpeg"
+    return Response(data, media_type=mime, headers={"Cache-Control": "private, no-store"})
 
 
 @router.get("/farmer-view")

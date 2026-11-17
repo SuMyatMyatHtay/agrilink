@@ -32,6 +32,8 @@ import AssistantPage from "./pages/assistant/Assistant.jsx";
 import Advice, { FarmerMessages, RecommendationDetail } from "./pages/advisory/Advice.jsx";
 import { AgronomistFarmer, AgronomistHome, AgronomistItem, MessageLog } from "./pages/advisory/Agronomist.jsx";
 import { StageReviewDetail, StageReviewQueue, StageSettings } from "./pages/stages/StageReviews.jsx";
+import Farmers from "./pages/advisory/Farmers.jsx";
+import Pilot from "./pages/contracts/Pilot.jsx";
 
 export const HOME = { farmer: "/farmer/home", buyer: "/buyer", operations: "/ops/decisions" };
 
@@ -110,6 +112,7 @@ export default function App() {
           <Route path="decisions" element={<Decisions />} />
           <Route path="certificates" element={<Certificates />} />
           <Route path="certificates/issue" element={<IssueCertificates />} />
+          <Route path="farmers" element={<Farmers />} />
           <Route path="agronomist" element={<AgronomistHome />} />
           <Route path="agronomist/farmers/:id" element={<AgronomistFarmer />} />
           <Route path="agronomist/farmers/:id/items/:itemId" element={<AgronomistItem />} />
@@ -130,6 +133,7 @@ export default function App() {
           <Route path=":id" element={<ContractDetail />} />
           <Route path=":id/edit" element={<ContractEdit />} />
           <Route path=":id/sign" element={<ContractSign />} />
+          <Route path=":id/pilot" element={<Pilot />} />
         </Route>
       </Route>
       {/* old separate Module 2 frame: now part of each portal */}

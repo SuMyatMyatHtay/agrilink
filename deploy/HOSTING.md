@@ -18,7 +18,9 @@ The full Node server is best hosted on a persistent host because it uses filesys
 
 ## Connections
 
-The client calls Node; Node calls ML and MongoDB Atlas. Telegram also calls Node. No Telegram/database secrets belong in the frontend or ML project.
+Agreement PDF storage update: on Vercel, agreement drafts and signed PDFs now use a MongoDB write-once collection automatically (maximum 12 MB per document). No extra storage credentials are needed. `DOC_STORE_BACKEND=mongodb` enables this on other hosts too. Existing local PDFs are not migrated automatically. Certificate/photo storage still needs separate adaptation. For a serverless backend leave client `VITE_REALTIME_URL` blank or set it to `disabled`; notification polling remains enabled. Only configure a realtime origin for a persistent Socket.IO backend.
+
+The client calls Node; Node calls ML and MongoDB Atlas. Telegram also calls Node. The combined Python/ML deployment now hosts farm operations and needs `M2_MONGO_URI` and `M2_GATEWAY_SECRET`. Node JWT/Telegram secrets stay on Node; no secrets belong in the frontend.
 
 Vercel **client** environment:
 
@@ -50,7 +52,7 @@ The build trains the three forecasting models from the supplied CSVs. Vercel run
 
 Set `VERCEL_SUPPORT_LARGE_FUNCTIONS=1` if large functions are supported by your project/account. Scientific Python libraries can exceed the standard bundle limit; the actual deployment build determines the bundle size. If the account cannot support the resulting bundle, use a smaller inference dependency set or a persistent Python host instead. This is a prepared configuration with local validation, not proof of a successful hosted build.
 
-ML needs no database URI, JWT secret or Telegram token. Its optional `DATA_GOV_IN_API_KEY` enables live market data. Leave `VISION_GALLERY_DIR` unset for the bundled inference deployment.
+Forecast-only endpoints need no database. The bundled farm-operations routes need `M2_MONGO_URI` (same Atlas connection as Node), `M2_DB_NAME=agrilink_m2` and the same `M2_GATEWAY_SECRET` on Node and Python. No Node JWT secret or Telegram token is needed on Python. Optional `DATA_GOV_IN_API_KEY` enables live market data. Leave `VISION_GALLERY_DIR` unset.
 
 Local ML command only (not a Vercel Start Command):
 
@@ -60,7 +62,9 @@ python -m uvicorn app.main:app --env-file .env --port 8000
 
 ## Optional farm-operations service
 
-The integrated farm-operations screens still call the separate Module 2 Python backend. This is additional to the three services above if you want those screens working. Keep it private behind Node because it trusts identity headers from the gateway rather than validating JWTs independently.
+Farm operations is now bundled into the **existing ML deployment**, at `/farm-operations/api/m2`. Enable **Include source files outside Root Directory** in the ML Vercel project: the existing build command copies `module2/backend/app` into the Python function. Set the database/shared-secret variables above and redeploy ML and Node. No fourth deployment or paid provider API is required. Node `M2_API_URL` can be blank on Vercel (derived from `ML_URL`) or explicitly set to `https://YOUR-ML.vercel.app/farm-operations/api/m2`. Uploaded photos use MongoDB on Vercel. Signed agreements hand over after all signatures, independently of blockchain; use **Sync farm operations** on existing signed agreements to retry earlier failed handoffs.
+
+A separate private service remains an alternative:
 
 - Root: `agrilink/module2/backend`; Python 3.11 or 3.12.
 - Build: `python -m pip install -r requirements.txt`.

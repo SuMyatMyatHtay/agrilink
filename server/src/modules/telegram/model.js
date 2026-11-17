@@ -7,5 +7,7 @@ export const TelegramLink = mongoose.models.TelegramLink || mongoose.model("Tele
 export const TelegramUpdate = mongoose.models.TelegramUpdate || mongoose.model("TelegramUpdate", new mongoose.Schema({
   _id: Number, chatId: String, status: { type: String, enum: ["processing", "done", "failed"] }, leaseUntil: Date,
   reply: String, replyUser: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  transcript: String,
+  demoVoice: Boolean,
   expiresAt: { type: Date, expires: 0 },
 }));

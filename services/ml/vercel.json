@@ -2,6 +2,6 @@
   "framework": "fastapi",
   "buildCommand": "python scripts/prepare_models.py",
   "functions": {
-    "app/main.py": { "includeFiles": "{models,data}/**", "maxDuration": 60 }
+    "app/main.py": { "includeFiles": "{models,data,app/farmops}/**", "maxDuration": 60 }
   }
 }

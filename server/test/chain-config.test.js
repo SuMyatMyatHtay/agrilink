@@ -19,3 +19,14 @@ test("blockchain defaults off without creating an RPC client or reporting fake r
     else process.env.CHAIN_ENABLED = previous;
   }
 });
+
+test("invalid hosted blockchain configuration leaves the API and signing available", async () => {
+  const keys = ["CHAIN_ENABLED", "VERCEL", "CHAIN_RPC", "CHAIN_PRIVATE_KEY", "CHAIN_CONTRACT_ADDRESS"];
+  const saved = Object.fromEntries(keys.map(key => [key, process.env[key]]));
+  try {
+    process.env.CHAIN_ENABLED = "true"; process.env.VERCEL = "1";
+    delete process.env.CHAIN_RPC; delete process.env.CHAIN_PRIVATE_KEY; delete process.env.CHAIN_CONTRACT_ADDRESS;
+    const chain = createChain(); assert.equal(chain.enabled, false);
+    await assert.rejects(chain.info(), { code: "chain_configuration" });
+  } finally { for (const [key, value] of Object.entries(saved)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
+});

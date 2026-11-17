@@ -22,7 +22,7 @@ function ChainPanel({ a, explorer }) {
         <h3 style={{ margin: 0 }}><Icon name="shield" />Blockchain verification</h3>
         {c.status === "registered" ? <span className="seal"><Icon name="checkCircle" size={16} />Registered · tamper-evident</span>
           : c.status === "failed" ? <span className="seal bad"><Icon name="xCircle" size={16} />Registration failed</span>
-          : <span className="seal off"><Icon name="alert" size={16} />Not yet registered — needs both signatures</span>}
+          : <span className="seal off"><Icon name="alert" size={16} />Not yet registered — needs all required signatures</span>}
       </div>
       <dl className="kv">
         <dt>Agreement ID</dt><dd>{a.agreementId} · version {a.version}</dd>
@@ -50,7 +50,7 @@ function Signatures({ a, provider }) {
       {a.signers.map((s) => (
         <div className="card" key={s.role}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-            <h3 style={{ margin: 0 }}><Icon name={s.role === "buyer" ? "building" : "sprout"} />{s.role === "buyer" ? "Buyer" : "Farmer / FPO"}</h3>
+            <h3 style={{ margin: 0 }}><Icon name={s.role === "buyer" ? "building" : "sprout"} />{s.role === "buyer" ? "Buyer" : s.role === "witness" ? "FPO witness" : "Farmer / FPO"}</h3>
             <span className={`badge ${s.status === "signed" ? "b-registered" : s.status === "declined" ? "b-disputed" : s.status === "identity_verified" ? "b-in_progress" : "b-pending_signature"}`}>
               {s.status === "signed" ? "Signed" : s.status === "identity_verified" ? "Identity verified" : s.status === "declined" ? "Declined" : "Awaiting signature"}</span>
           </div>
@@ -154,7 +154,7 @@ export default function Detail() {
   const [modal, setModal] = useState(null); // {kind:'amend'|'dispute'|'milestone', key}
   const [text, setText] = useState("");
   const [price, setPrice] = useState("");
-  const r = useApi(`/contracts/${id}`, { live: ["contracts"] });
+  const r = useApi(`/contracts/${id}`, { live: ["contracts"], refreshMs: 15000 });
   const meta = useApi("/contracts/meta").data;
   const a = r.data;
   if (r.loading && !a) return <Loading />;
@@ -177,18 +177,20 @@ export default function Detail() {
           <p className="sub">{a.parties.buyer.company} ↔ {a.parties.seller.farmerName} ({a.parties.seller.fpo}) · Alphonso Grade {a.terms.grade} · {a.terms.quantityTons} t · <b>{usd(a.terms.totalValueUsd)}</b></p>
         </div>
         <div className="page-actions">
+          <Link className="btn alt" to={`/contracts/${id}/pilot`}>Quality, delivery &amp; escrow</Link>
           {a.status === "draft" && a.bond && ["buyer", "farmer"].includes(a.myRole) && <button className="btn alt" onClick={async () => {
             if (!window.confirm("Release this claim? Its quantity will become available to other farmers.")) return;
             try { await api(`/bonds/${a.bond}`, { method: "DELETE" }); toast("Claim released. The quantity is available again."); nav(a.myRole === "farmer" ? "/farmer/offers" : "/buyer"); }
             catch (e) { toast(e.message || "Could not release this claim"); }
           }}>Release claim</button>}
-          {a.status === "draft" && <><button className="btn alt" onClick={() => nav(`/contracts/${id}/edit`)}><Icon name="pen" size={16} />Edit terms</button>
-            <button className="btn" onClick={() => act("/send", undefined, "Sent to both parties for signature")}><Icon name="arrowRight" size={16} />Send for signature</button></>}
-          {a.status === "pending_signature" && me?.status !== "signed" && <><button className="btn cyan" onClick={() => nav(`/contracts/${id}/sign`)}><Icon name="pen" size={16} />Review &amp; sign</button>
-            <button className="btn danger" onClick={() => act("/decline", { reason: "Cannot proceed" }, "Declined — claim released")}>Decline</button></>}
+          {a.status === "draft" && ["buyer", "farmer"].includes(a.myRole) && <><button className="btn alt" onClick={() => nav(`/contracts/${id}/edit`)}><Icon name="pen" size={16} />Edit terms</button>
+            <button className="btn" onClick={() => act("/send", undefined, "Sent to buyer, farmer and assigned FPO witness")}><Icon name="arrowRight" size={16} />Send for signature</button></>}
+          {a.status === "pending_signature" && me && me.status !== "signed" && (a.myRole !== "witness" || a.witnessReady) && <><button className="btn cyan" onClick={() => nav(`/contracts/${id}/sign`)}><Icon name="pen" size={16} />{a.myRole === "witness" ? "Witness & sign" : "Review & sign"}</button>
+            {a.myRole !== "witness" && <button className="btn danger" onClick={() => act("/decline", { reason: "Cannot proceed" }, "Declined — claim released")}>Decline</button>}</>}
           {a.status === "pending_signature" && <button className="btn alt" onClick={() => dl("draft")}><Icon name="file" size={16} />Draft PDF</button>}
           {signed && <button className="btn alt" onClick={() => dl("signed")}><Icon name="file" size={16} />Download signed PDF</button>}
-          {signed && <button className="btn alt" onClick={() => nav(`/contracts/verify?id=${id}`)}><Icon name="shield" size={16} />Verify</button>}
+          {signed && ["buyer", "farmer"].includes(a.myRole) && a.module2?.status !== "handed_over" && <button className="btn alt" onClick={() => act("/handoff", undefined, "Farm operations synchronization retried")}>Sync farm operations</button>}
+          {signed && <button className="btn alt" onClick={() => nav(meta?.chain?.status === "connected" ? `/contracts/verify?id=${id}` : `/contracts/${id}/pilot#integrity-proof`)}><Icon name="shield" size={16} />Verify</button>}
           {["registered", "in_progress"].includes(a.status) && <><button className="btn alt" onClick={() => setModal({ kind: "amend" })}>Amend</button>
             <button className="btn danger" onClick={() => setModal({ kind: "dispute" })}>Raise dispute</button></>}
           {a.status === "disputed" && <button className="btn alt" onClick={() => act("/dispute/resolve", { note: "Resolved by parties" }, "Dispute resolved")}>Mark dispute resolved</button>}
@@ -196,6 +198,7 @@ export default function Detail() {
         </div>
       </div>
 
+      {a.status === "pending_signature" && a.signers.some(s => s.role === "witness") && <div className="insight">{a.witnessReady ? "Buyer and farmer have signed. Awaiting the assigned FPO officer's witness signature." : "Buyer and farmer sign first. The assigned FPO officer then reviews and countersigns."}</div>}
       {a.status === "disputed" && <div className="alertbox"><span className="ic"><Icon name="alert" /></span><div><b>Dispute open</b> — raised by {a.disputed?.raisedBy} on {dt(a.disputed?.at)}: {a.disputed?.reason}</div></div>}
       {a.myRole === "farmer" && a.status === "pending_signature" && me?.status !== "signed" && a.bond && <PreSignCheck bondId={a.bond} />}
 

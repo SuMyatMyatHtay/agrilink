@@ -8,6 +8,8 @@ into a larger AgriLink backend unchanged: `parent.include_router(m2_router, pref
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+import os
+import hmac
 
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -60,6 +62,17 @@ def create_app() -> FastAPI:
     app.add_middleware(CORSMiddleware, allow_origins=s.cors_origins, allow_credentials=False,
                        allow_methods=["*"], allow_headers=["*"])
     install_error_handlers(app)
+    @app.middleware("http")
+    async def gateway_only(request: Request, call_next):
+        secret = os.getenv("M2_GATEWAY_SECRET", "")
+        hosted = os.getenv("VERCEL") == "1"
+        if hosted and not os.getenv("M2_MONGO_URI"):
+            return JSONResponse(status_code=503, content={"error": {"code": "m2_database_not_configured", "message": "Set M2_MONGO_URI on the Python/ML deployment"}})
+        if not request.url.path.endswith(f"{M2_PREFIX}/health") and (secret or hosted):
+            supplied = request.headers.get("x-m2-gateway-secret", "")
+            if not secret or not hmac.compare_digest(secret.encode(), supplied.encode()):
+                return JSONResponse(status_code=401, content={"error": {"code": "gateway_required", "message": "Use the AgriLink Node gateway; configure matching M2_GATEWAY_SECRET values"}})
+        return await call_next(request)
     app.include_router(m2_router, prefix=M2_PREFIX)
     return app
 

@@ -23,8 +23,22 @@ export const NETWORKS = {
 
 export const agreementRef = (agreementId) => ethers.keccak256(ethers.toUtf8Bytes(agreementId));
 const hex32 = (sha256hex) => "0x" + sha256hex.replace(/^0x/, "");
+const REGISTRY_ABI = [
+  "function register(bytes32,bytes32,uint32) returns (uint32)",
+  "function lookup(bytes32) view returns (bytes32 agreementRef,uint32 version)",
+  "function versionCount(bytes32) view returns (uint256)",
+  "function getVersion(bytes32,uint32) view returns (tuple(bytes32 docHash,bytes32 prevDocHash,uint32 version,uint64 registeredAt,address registrar))",
+  "function latest(bytes32) view returns (tuple(bytes32 docHash,bytes32 prevDocHash,uint32 version,uint64 registeredAt,address registrar))",
+];
 
 export function createChain() {
+  try { return buildChain(); }
+  catch {
+    const unavailable = async () => { const error = new Error("Blockchain configuration is incomplete or invalid. Signing remains available; check CHAIN_RPC, CHAIN_ID, CHAIN_PRIVATE_KEY and CHAIN_CONTRACT_ADDRESS."); error.code = "chain_configuration"; throw error; };
+    return { enabled: false, info: unavailable, ensureDeployed: unavailable, register: unavailable, lookup: unavailable, latest: unavailable, getVersion: unavailable };
+  }
+}
+function buildChain() {
   // Do not instantiate ethers when this optional integration is disabled:
   // its network detection otherwise continues retrying after startup catches an error.
   if (process.env.CHAIN_ENABLED !== "true") {
@@ -37,12 +51,26 @@ export function createChain() {
       lookup: unavailable, latest: unavailable, getVersion: unavailable };
   }
   const rpc = process.env.CHAIN_RPC || "http://127.0.0.1:8545";
-  const provider = new ethers.JsonRpcProvider(rpc, undefined, { staticNetwork: false });
+  if (process.env.VERCEL === "1" && (!process.env.CHAIN_RPC || !process.env.CHAIN_PRIVATE_KEY || !process.env.CHAIN_CONTRACT_ADDRESS)) {
+    throw new Error("Hosted blockchain requires CHAIN_RPC, CHAIN_PRIVATE_KEY and CHAIN_CONTRACT_ADDRESS");
+  }
+  if (!/^(http:\/\/(127\.0\.0\.1|localhost)(:|\/|$))/.test(rpc) && !process.env.CHAIN_PRIVATE_KEY) {
+    throw new Error("Set a dedicated CHAIN_PRIVATE_KEY for a public blockchain; the local development wallet cannot be used");
+  }
+  const request = new ethers.FetchRequest(rpc);
+  request.timeout = 10000;
+  const configuredId = Number(process.env.CHAIN_ID || (/127\.0\.0\.1|localhost/.test(rpc) ? 31337 : 80002));
+  const provider = new ethers.JsonRpcProvider(request, configuredId, { staticNetwork: true });
   const wallet = new ethers.Wallet(process.env.CHAIN_PRIVATE_KEY || HARDHAT_DEV_KEY, provider);
   let deployment = null;
   let contract = null;
 
   function load() {
+    if (process.env.CHAIN_CONTRACT_ADDRESS) {
+      deployment = { address: ethers.getAddress(process.env.CHAIN_CONTRACT_ADDRESS), abi: REGISTRY_ABI };
+      contract = new ethers.Contract(deployment.address, deployment.abi, wallet);
+      return;
+    }
     if (!fs.existsSync(DEPLOYMENT)) throw new Error(`No deployment file at ${DEPLOYMENT}. Run: cd blockchain && npm run deploy:local`);
     deployment = JSON.parse(fs.readFileSync(DEPLOYMENT, "utf8"));
     contract = new ethers.Contract(deployment.address, deployment.abi, wallet);
@@ -50,8 +78,10 @@ export function createChain() {
 
   async function info() {
     if (!contract) load();
-    const net = await provider.getNetwork();
-    const chainId = Number(net.chainId);
+    const chainId = Number(await provider.send("eth_chainId", []));
+    if (chainId !== configuredId) throw new Error("RPC network does not match configured network");
+    if (process.env.CHAIN_ID && chainId !== Number(process.env.CHAIN_ID)) throw new Error("RPC network does not match CHAIN_ID");
+    if (await provider.getCode(deployment.address) === "0x") throw new Error("No registry contract exists at the configured address on this network");
     return { chainId, network: NETWORKS[chainId]?.name || `EVM chain ${chainId}`, explorer: NETWORKS[chainId]?.explorer || null,
       contract: deployment.address, registrar: wallet.address, block: await provider.getBlockNumber() };
   }
@@ -78,7 +108,10 @@ export function createChain() {
   async function register(agreementId, docSha256, version) {
     if (!contract) load();
     const ref = agreementRef(agreementId);
-    const tx = await contract.register(ref, hex32(docSha256), version);
+    // Bypass ethers' short RPC cache: consecutive registrations on fast chains
+    // otherwise reuse a mined nonce. Cross-instance conflicts remain retryable.
+    const nonce = Number(await provider.send("eth_getTransactionCount", [wallet.address, "pending"]));
+    const tx = await contract.register(ref, hex32(docSha256), version, { nonce });
     const receipt = await tx.wait();
     const block = await provider.getBlock(receipt.blockNumber);
     const rec = await contract.getVersion(ref, version);
@@ -111,5 +144,5 @@ export function createChain() {
     return { docHash: r.docHash, prevDocHash: r.prevDocHash, version: Number(r.version), registeredAt: new Date(Number(r.registeredAt) * 1000), registrar: r.registrar };
   }
 
-  return { enabled: true, info, ensureDeployed, register, lookup, latest, getVersion };
+  return { enabled: true, info, ensureDeployed, register, lookup, latest, getVersion, close: () => provider.destroy() };
 }

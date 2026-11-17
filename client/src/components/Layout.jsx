@@ -62,6 +62,16 @@ function ShellInner({ role, children }) {
     { label: "Farm tools", entries: [...items.filter(([to]) => ["/farmer/stages", "/farmer/certificates"].includes(to)), ...ops.flatMap((g) => g.items.map((i) => [i.to, g.icon, i.label, i.end]))] },
   ] : [];
   const Tools = role === "buyer" ? "details" : "div";
+  const operationsPrimary = [
+    ["/ops/decisions", "zap", "n_decisions"], ["/ops/farmers", "farmer", "Farmers"],
+    ...ops.filter(g => g.group === "Supply").flatMap(g => g.items.map(i => [i.to, g.icon, i.label, i.end])),
+    ["/ops/stage-reviews", "checkCircle", "n_stage_reviews"], ["/contracts", "shield", "Agreements & witness"],
+  ];
+  const operationsGroups = [
+    { label: "Quality & farmer support", entries: [["/ops/agronomist", "target", "n_agronomist"], ...ops.filter(g => g.group === "Quality").flatMap(g => g.items.map(i => [i.to, g.icon, i.label, i.end]))] },
+    { label: "Risk & recovery", entries: ops.filter(g => g.group === "Risk").flatMap(g => g.items.map(i => [i.to, g.icon, i.label, i.end])) },
+    { label: "Records & messages", entries: [["/contracts", "shield", "Agreements"], ...items.filter(([to]) => ["/ops/messages", "/ops/certificates"].includes(to)), ...ops.filter(g => g.group === "Records").flatMap(g => g.items.map(i => [i.to, g.icon, i.label, i.end]))] },
+  ].filter(g => g.entries.length);
   const current = items.find(([to, , , end]) => (end ? pathname === to : pathname.startsWith(to)));
   const currentOps = !current && [...opsItems].sort((a, b) => b.to.length - a.to.length).find((i) => pathname.startsWith(i.to));
   const name = role === "farmer" ? user?.name : role === "operations" ? ROLE_LABEL[user?.m2Role || "admin"] : user?.company || user?.name || t("buyer");
@@ -74,13 +84,14 @@ function ShellInner({ role, children }) {
         <Brand to={items[0][0]} />
         <div className="side-label">{t(PORTAL[role])}</div>
         <nav className="side-nav">
-          {(role === "farmer" ? farmerPrimary : role === "buyer" ? items.slice(0, 1) : items).map(([to, icon, label, end]) => (
+          {(role === "farmer" ? farmerPrimary : role === "buyer" ? items.slice(0, 1) : operationsPrimary).map(([to, icon, label, end]) => (
             <NavLink key={to} to={to} end={!!end} className={({ isActive }) => (isActive ? "on" : "")}><Icon name={icon} />{t(label)}</NavLink>
           ))}
         </nav>
         {role === "farmer" && <div className="farmer-secondary"><div className="side-label">More tools</div><FarmerTools groups={farmerGroups} pathname={pathname} t={t} /></div>}
+        {role === "operations" && <div className="farmer-secondary"><div className="side-label">More tools</div><FarmerTools groups={operationsGroups} pathname={pathname} t={t} /></div>}
         {role === "buyer" && <nav className="side-nav"><NavLink to="/contracts"><Icon name="shield" />Agreements</NavLink></nav>}
-        {role !== "farmer" && <Tools className={role === "buyer" ? "buyer-more" : undefined} open={role === "buyer" ? pathname.startsWith("/buyer/ops") || pathname.startsWith("/buyer/decisions") || pathname.startsWith("/buyer/certificates") || undefined : undefined}>
+        {role === "buyer" && <Tools className={role === "buyer" ? "buyer-more" : undefined} open={role === "buyer" ? pathname.startsWith("/buyer/ops") || pathname.startsWith("/buyer/decisions") || pathname.startsWith("/buyer/certificates") || undefined : undefined}>
         {role === "buyer" && <summary>More tools</summary>}
         {role === "buyer" && <nav className="side-nav">{items.slice(1).map(([to, icon, label, end]) => <NavLink key={to} to={to} end={!!end} className={({ isActive }) => isActive ? "on" : ""}><Icon name={icon} />{t(label)}</NavLink>)}</nav>}
         {ops.length > 0 && <div className="side-label" style={{ marginTop: 14 }}>{t("m2_link")}</div>}
@@ -90,27 +101,28 @@ function ShellInner({ role, children }) {
           )))}
         </nav>
         </Tools>}
-        {role === "operations" && <><div className="side-label" style={{ marginTop: 14 }}>{t("trust_label")}</div>
-        <nav className="side-nav">
-          <NavLink to="/contracts"><Icon name="shield" />{t("trust_link")}</NavLink>
-        </nav></>}
         <div className="side-foot">
-          <div className="user-card">
+          {role === "farmer" ? <NavLink to="/farmer/profile" className="user-card profile-card" aria-label="Open farmer profile">
+            <span className="avatar">{initials(name)}</span>
+            <div className="who"><b>{name}</b><span>{t("n_profile")} <span aria-hidden="true">→</span></span></div>
+            <Icon name="profile" size={18} />
+          </NavLink> : <div className="user-card">
             <span className="avatar">{initials(name)}</span>
             <div className="who"><b>{name}</b><span>{subtitle}</span></div>
-          </div>
+          </div>}
           <button className="linkbtn" style={{ padding: "6px 8px" }} onClick={out}><Icon name="logout" size={16} />{t("logout")}</button>
         </div>
       </aside>
 
       <div className="main-col">
         <header className="topbar">
-          <div className="crumb">{t(currentOps ? "m2_link" : PORTAL[role])} / <b>{pathname.startsWith("/contracts") ? "Agreements" : current ? t(current[2]) : currentOps?.label || ""}</b></div>
+          <div className="crumb">{t(currentOps ? "m2_link" : PORTAL[role])} / <b>{pathname.startsWith("/contracts") ? "Agreements" : current ? t(current[2]) : currentOps?.label || (pathname === "/ops/farmers" ? "Farmers" : "")}</b></div>
           <div className="mobile-brand"><span className="brand-mark"><Icon name="leaf" size={16} /></span><b>Agri<span>Link</span></b></div>
           <div className="top-actions">
             <OpsRolePicker />
             <LangChips />
             <NotificationBell />
+            {role === "farmer" && <NavLink to="/farmer/profile" className="bell profile-shortcut" title={t("n_profile")} aria-label="Open farmer profile"><Icon name="profile" size={18} /></NavLink>}
             <button className="bell" onClick={out} title={t("logout")} aria-label={t("logout")}><Icon name="logout" size={17} /></button>
           </div>
         </header>
@@ -119,14 +131,13 @@ function ShellInner({ role, children }) {
       </div>
 
       <nav className="bnav">
-        {(role === "farmer" ? farmerPrimary : role === "buyer" ? [["/buyer", "dashboard", "n_requirements", true], ["/contracts", "shield", "trust_link"]] : items.slice(0, 4)).map(([to, icon, label, end]) => (
+        {(role === "farmer" ? farmerPrimary : role === "buyer" ? [["/buyer", "dashboard", "n_requirements", true], ["/contracts", "shield", "trust_link"]] : operationsPrimary.slice(0, 4)).map(([to, icon, label, end]) => (
           <NavLink key={to} to={to} end={!!end} className={({ isActive }) => (isActive ? "on" : "")}><Icon name={icon} size={20} />{t(label)}</NavLink>
         ))}
-        {role === "operations" && opsItems[0] && <NavLink to={opsItems[0].to} end={opsItems[0].end}><Icon name="sprout" size={20} />{t("n_ops")}</NavLink>}
-        {role === "farmer" && <details className="farmer-mobile-more">
+        {(role === "farmer" || role === "operations") && <details className="farmer-mobile-more">
           <summary><span aria-hidden="true">&#8226;&#8226;&#8226;</span>More</summary>
           <div className="farmer-mobile-panel" onClick={(event) => { if (event.target.closest("a")) event.currentTarget.closest("details").open = false; }}>
-            <h3>More tools</h3><FarmerTools groups={farmerGroups} pathname={pathname} t={t} />
+            <h3>More tools</h3><FarmerTools groups={role === "operations" ? operationsGroups : farmerGroups} pathname={pathname} t={t} />
           </div>
         </details>}
       </nav>

@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { User } from "../users/model.js";
+import { m2Base, m2Headers } from "../../lib/m2config.js";
 
 /**
  * Module 1 → Module 2 handoff (see module2/docs/INTEGRATION.md §5).
@@ -9,7 +10,6 @@ import { User } from "../users/model.js";
  *   2. POSTs the activated agreement to Module 2 (`POST /api/m2/agreements`, role `system`).
  * Module 2 then runs quality monitoring, farmer-doctor visits, risks, harvest, escrow tranche 2 and ratings.
  */
-const M2_API = process.env.M2_API_URL || "http://127.0.0.1:8100/api/m2";
 const M2_DB = process.env.M2_DB_NAME || "agrilink_m2";
 const TALUKA = { Sindhudurg: "Devgad", Ratnagiri: "Ratnagiri", Raigad: "Alibag", Palghar: "Dahanu" };
 const LANGUAGE = { en: "English", hi: "Hindi", mr: "Marathi" };
@@ -41,8 +41,13 @@ export async function syncReference(farmer, buyer) {
     orchard_ha: +(Number(f.acres || 0) * 0.4047).toFixed(2), trees: f.trees, channel: "whatsapp",
     language: LANGUAGE[farmer.lang] || "Marathi", phone: `+91 ${farmer.mobile.slice(0, 2)}XXX XXX${farmer.mobile.slice(-2)}`, consent_recorded: true,
   }, { registered_at: new Date() });
-  await set("buyers", m2Id.buyer(buyer._id), { name: buyer.company || buyer.name, country: "SG" });
-  return { fpoId, farmerId: m2Id.farmer(farmer._id), buyerId: m2Id.buyer(buyer._id) };
+  if (buyer) await set("buyers", m2Id.buyer(buyer._id), { name: buyer.company || buyer.name, country: "SG" });
+  return { fpoId, farmerId: m2Id.farmer(farmer._id), buyerId: buyer ? m2Id.buyer(buyer._id) : null };
+}
+
+export async function syncPeople() {
+  const farmers = await User.find({ role: "farmer", farm: { $exists: true } });
+  for (const farmer of farmers) await syncReference(farmer);
 }
 
 /** Hand a registered agreement to Module 2. Returns a status object stored on the agreement. */
@@ -59,9 +64,9 @@ export async function handToModule2(a, fetchImpl = fetch) {
     // Module 2 requires a signed commitment; in AgriLink it is the OTP-verified e-signature on the registered agreement.
     commitments: [{ farmer_id: ids.farmerId, committed_kg: Math.round(a.terms.quantityTons * 1000), signed_on: day(signedOn), signed_in_person: true }],
   };
-  const res = await fetchImpl(`${M2_API}/agreements`, {
-    method: "POST", headers: { "content-type": "application/json", "X-M2-Role": "system", "X-M2-Actor": "agrilink-module1" },
-    body: JSON.stringify(body), signal: AbortSignal.timeout(8000),
+  const res = await fetchImpl(`${m2Base()}/agreements`, {
+    method: "POST", headers: { "content-type": "application/json", "X-M2-Role": "system", "X-M2-Actor": "agrilink-module1", ...m2Headers() },
+    body: JSON.stringify(body), signal: AbortSignal.timeout(25000),
   });
   if (res.status === 409) return { status: "handed_over", at: new Date(), m2AgreementId: a.agreementId, note: "already received" };
   if (!res.ok) {

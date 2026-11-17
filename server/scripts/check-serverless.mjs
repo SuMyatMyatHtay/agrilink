@@ -21,6 +21,13 @@ try {
     assert.equal(response.status, 200);
     assert.equal((await response.json()).status, "ok");
   }
+  const { createMongoStore } = await import("../src/modules/contracts/storage.js");
+  const data = Buffer.from("%PDF-1.4 isolated storage test");
+  const store = createMongoStore();
+  await store.putOnce("entry-test/v1-draft.pdf", data);
+  assert.deepEqual(await createMongoStore().get("entry-test/v1-draft.pdf"), data);
+  await assert.rejects(store.putOnce("entry-test/v1-draft.pdf", data), { code: "EEXIST" });
+  await assert.rejects(store.get("missing.pdf"), { code: "ENOENT" });
   console.log("Serverless default export: concurrent database and API health checks passed");
 } finally {
   if (server) await new Promise(resolve => server.close(resolve));

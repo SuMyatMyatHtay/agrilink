@@ -16,7 +16,9 @@ export function createNotifier(initialIo = null) {
     if (!ids.length) return [];
     const docs = await Notification.insertMany(ids.map((user) => ({ user, type, data })));
     for (const d of docs) emit(`user:${d.user}`, "notification", d.toObject());
-    for (const fn of listeners) Promise.resolve(fn(docs)).catch(() => {});   // e.g. WhatsApp / SMS bridge
+    // Finish delivery attempts before a serverless request can freeze. Channel
+    // failures remain recorded by the messenger and do not undo the notification.
+    await Promise.allSettled(listeners.map(fn => Promise.resolve().then(() => fn(docs))));
     return docs;
   }
 

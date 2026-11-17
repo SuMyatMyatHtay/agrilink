@@ -16,6 +16,7 @@ import { createApp } from "../src/app.js";
 import { signToken } from "../src/middleware/auth.js";
 import { env } from "../src/config/env.js";
 import { createHash } from "node:crypto";
+import { m2Id } from "../src/modules/module2/handoff.js";
 
 test("FCFS: concurrent demand/capacity limits, releases, activation, rollback, legacy migration and WhatsApp bridge", async () => {
   const mongo = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
@@ -25,6 +26,8 @@ test("FCFS: concurrent demand/capacity limits, releases, activation, rollback, l
     const buyer = await User.create({ mobile: "6500000088", role: "buyer", company: "Allocation Test" });
     const farm = { village: "Devgad", district: "Sindhudurg", acres: 10, trees: 1000, age: 15, irrigation: "drip" };
     const farmers = await User.create([1, 2, 3].map((n) => ({ mobile: `980000000${n}`, name: `Farmer ${n}`, role: "farmer", farm })));
+    const officer = await User.create({ mobile: "9000000099", name: "Assigned FPO officer", role: "operations", officerFpoId: m2Id.fpo(farm) });
+    await User.updateMany({ _id: { $in: farmers.map(f => f._id) } }, { $set: { fpoOfficer: officer._id } });
     const makeRequirement = (extra = {}) => Requirement.create({ buyer: buyer._id, buyerName: buyer.company, grade: "A", tons: 5, priceUsd: 5, deliverBy: new Date(Date.now() + 86400000 * 30), ...extra });
     const r = await makeRequirement();
     const results = await Promise.allSettled(farmers.slice(0, 2).map((f) => claimRequirement(f._id, r._id, 4)));
@@ -74,7 +77,7 @@ test("FCFS: concurrent demand/capacity limits, releases, activation, rollback, l
     // Full signatures fill the request even when optional blockchain is offline.
     const files = new Map();
     const store = { async putOnce(key, bytes) { if (files.has(key)) throw new Error("exists"); files.set(key, bytes); return { key, size: bytes.length, sha256: createHash("sha256").update(bytes).digest("hex") }; }, async get(key) { return files.get(key); } };
-    const server = createApp({ noMessageBridge: true, contractDeps: { store, chain: { async register() { throw new Error("Blockchain disabled"); } } } }).listen(0);
+    const server = createApp({ noMessageBridge: true, contractDeps: { store, handoff: async () => ({ status: "skipped", reason: "isolated-test" }), chain: { async register() { throw new Error("Blockchain disabled"); } } } }).listen(0);
     try {
       await new Promise((resolve) => server.listening ? resolve() : server.once("listening", resolve));
       const api = async (path, user, body = {}) => {
@@ -102,7 +105,7 @@ test("FCFS: concurrent demand/capacity limits, releases, activation, rollback, l
       const signing = await claimRequirement(farmers[0]._id, signingReq._id, 1);
       const prefix = `/contracts/${signing.agreement.agreementId}`;
       await api(`${prefix}/send`, buyer);
-      for (const user of [buyer, farmers[0]]) {
+      for (const user of [buyer, farmers[0], officer]) {
         await api(`${prefix}/sign/start`, user);
         await api(`${prefix}/sign/verify`, user, { otp: env.devOtp });
         await api(`${prefix}/sign`, user, { type: "typed", typedName: user.name || user.company, consent: true });
